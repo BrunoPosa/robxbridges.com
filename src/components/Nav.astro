@@ -1,0 +1,82 @@
+---
+interface Props {
+  name: string;
+}
+
+const { name } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+const links = [
+  { href: "/music", label: "Music" },
+  { href: "/films", label: "Films" },
+  { href: "/collaborations", label: "Collaborations" },
+  { href: "#about", label: "About" },
+];
+---
+
+<header class="site-header">
+  <a class="wordmark" href="/">
+    {name}
+  </a>
+  <nav aria-label="Sections">
+    {links.map((link) => (
+      <a href={link.href} aria-current={path === link.href ? "page" : undefined}>
+        {link.label}
+      </a>
+    ))}
+  </nav>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1.5rem;
+    min-height: var(--header);
+    padding: 1.15rem 8vw 0.9rem;
+    background: var(--black);
+    border-bottom: 1px solid var(--forest);
+  }
+
+  .wordmark {
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    letter-spacing: 0.03em;
+    color: var(--bone);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem 1.15rem;
+  }
+
+  nav a {
+    color: var(--taupe);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+
+  nav a[aria-current="page"],
+  nav a:hover {
+    color: var(--bone);
+  }
+
+  @media (max-width: 720px) {
+    .site-header {
+      padding: 1rem 1.25rem 0.85rem;
+    }
+
+    nav {
+      gap: 0.35rem 0.85rem;
+    }
+  }
+</style>

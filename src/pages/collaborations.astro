@@ -1,0 +1,26 @@
+---
+import Base from "../layouts/Base.astro";
+import { loadCatalog } from "../data/catalog";
+
+const { collaborations } = loadCatalog();
+---
+
+<Base title="Collaborations">
+  <article class="sheet">
+    <h1>Collaborations</h1>
+    {collaborations.length === 0 ? (
+      <p class="quiet">Selected work with others will be listed here.</p>
+    ) : (
+      <ul class="work-list">
+        {collaborations.map((collaboration) => (
+          <li>
+            <a href={collaboration.url} target="_blank" rel="noopener noreferrer">
+              {collaboration.name}
+              {collaboration.role ? ` — ${collaboration.role}` : ""}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </article>
+</Base>

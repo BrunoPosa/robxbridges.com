@@ -1,0 +1,48 @@
+---
+import "../styles/global.css";
+import "@fontsource/outfit/latin-400.css";
+import "@fontsource/cormorant-garamond/latin-500.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { loadCatalog } from "../data/catalog";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const catalog = loadCatalog();
+const { title, description = catalog.site.role } = Astro.props;
+const fullTitle =
+  title === catalog.site.name
+    ? `${catalog.site.name} — ${catalog.site.role}`
+    : `${title} — ${catalog.site.name}`;
+const canonical = Astro.site
+  ? new URL(Astro.url.pathname, Astro.site).href
+  : Astro.url.href;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+  </head>
+  <body>
+    <a class="skip" href="#content">
+      Skip to content
+    </a>
+    <Nav name={catalog.site.name} />
+    <main id="content">
+      <slot />
+    </main>
+    <Footer catalog={catalog} />
+  </body>
+</html>

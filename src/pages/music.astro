@@ -1,0 +1,24 @@
+---
+// Track titles and links come from references/links.md.
+// The album layout — cover on the left, Bandcamp on the right — comes in the next music pass.
+import Base from "../layouts/Base.astro";
+import { loadCatalog } from "../data/catalog";
+
+const { music } = loadCatalog();
+---
+
+<Base title="Music">
+  <article class="sheet">
+    <h1>Music</h1>
+    <ul class="work-list">
+      {music.tracks.map((track) => (
+        <li>
+          <a href={track.url} target="_blank" rel="noopener noreferrer">
+            {track.title}
+            {track.summary && <span class="work-meta">{track.summary}</span>}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </article>
+</Base>

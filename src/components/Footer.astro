@@ -1,0 +1,181 @@
+---
+// About and contact close every page. The words come from references/links.md.
+// Send does not deliver mail while the site is being built. Do not point this
+// form at a real inbox during development or tests.
+
+import type { Catalog } from "../data/catalog";
+import { publicSrc, socialLinks } from "../data/catalog";
+import SocialLinks from "./SocialLinks.astro";
+
+interface Props {
+  catalog: Catalog;
+}
+
+const { catalog } = Astro.props;
+const links = socialLinks(catalog);
+const paragraphs = catalog.about
+  .split(/\n\s*\n/)
+  .map((paragraph) => paragraph.trim())
+  .filter(Boolean);
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="inner">
+    <section id="about" aria-labelledby="about-heading">
+      <h2 id="about-heading">About</h2>
+      {catalog.aboutPhoto && (
+        <img
+          src={publicSrc(catalog.aboutPhoto)}
+          alt={catalog.site.name}
+          width="280"
+          height="280"
+        />
+      )}
+      {paragraphs.map((paragraph) => (
+        <p class="about-copy">{paragraph}</p>
+      ))}
+    </section>
+
+    <section id="contact" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">Contact</h2>
+      <form id="contact-form" onsubmit="return false">
+        <label>
+          Name
+          <input name="name" type="text" autocomplete="name" required />
+        </label>
+        <label>
+          Email
+          <input name="email" type="email" autocomplete="email" required />
+        </label>
+        <label>
+          Message
+          <textarea name="message" rows="5" required />
+        </label>
+        <button type="submit">Send</button>
+        <p class="form-note" role="status"></p>
+      </form>
+      <script>
+        const form = document.querySelector("#contact-form");
+        const note = form?.querySelector(".form-note");
+        form?.addEventListener("submit", () => {
+          if (!(form instanceof HTMLFormElement) || !form.checkValidity()) return;
+          if (note) {
+            note.textContent = "Nothing was sent. Mail is off while the site is being built.";
+          }
+        });
+      </script>
+      <SocialLinks links={links} />
+    </section>
+
+    <p class="copyright">
+      © {year} {catalog.site.name}
+    </p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--forest);
+    padding: 4.5rem 1.25rem 2.5rem;
+  }
+
+  .inner {
+    width: min(36rem, 100%);
+    margin: 0 auto;
+  }
+
+  h2 {
+    margin: 0 0 1.25rem;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  #contact {
+    margin-top: 3.5rem;
+  }
+
+  img {
+    display: block;
+    width: min(100%, 16rem);
+    height: auto;
+    margin: 0 0 1.25rem;
+    object-fit: cover;
+  }
+
+  .about-copy {
+    margin: 0 0 1rem;
+    white-space: pre-line;
+  }
+
+  form {
+    display: grid;
+    gap: 1.15rem;
+  }
+
+  label {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--taupe);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    margin: 0;
+    padding: 0.55rem 0;
+    border: none;
+    border-bottom: 1px solid var(--forest);
+    border-radius: 0;
+    background: transparent;
+    color: var(--bone);
+    font: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 7rem;
+  }
+
+  button {
+    justify-self: start;
+    margin-top: 0.4rem;
+    padding: 0.75rem 1.4rem;
+    border: 1px solid var(--taupe);
+    background: transparent;
+    color: var(--bone);
+    font: inherit;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--bone);
+  }
+
+  .form-note {
+    margin: 0;
+    min-height: 1.4rem;
+    color: var(--taupe);
+    font-size: 0.95rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .copyright {
+    margin: 3rem 0 0;
+    color: var(--taupe);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+  }
+</style>

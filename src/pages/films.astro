@@ -1,0 +1,47 @@
+---
+// Film order follows references/links.md. Aryk stays first.
+// Scroll-snap playback comes in the films pass. These titles open the videos for now.
+import Base from "../layouts/Base.astro";
+import { loadCatalog } from "../data/catalog";
+
+const { films, dictionary } = loadCatalog();
+---
+
+<Base title="Films">
+  <article class="sheet">
+    <h1>Films</h1>
+    <ol class="work-list">
+      {films.map((film) => (
+        <li>
+          <a href={film.url} target="_blank" rel="noopener noreferrer">
+            {film.title}
+            {(film.summary || film.credits) && (
+              <span class="work-meta">
+                {film.summary}
+                {film.summary && film.credits ? " — " : ""}
+                {film.credits}
+              </span>
+            )}
+          </a>
+        </li>
+      ))}
+    </ol>
+    <h2>Chinese Dictionary</h2>
+    <ol class="work-list">
+      {dictionary.map((piece) => (
+        <li>
+          <a href={piece.url} target="_blank" rel="noopener noreferrer">
+            {piece.title}
+            {(piece.summary || piece.credits) && (
+              <span class="work-meta">
+                {piece.summary}
+                {piece.summary && piece.credits ? " — " : ""}
+                {piece.credits}
+              </span>
+            )}
+          </a>
+        </li>
+      ))}
+    </ol>
+  </article>
+</Base>

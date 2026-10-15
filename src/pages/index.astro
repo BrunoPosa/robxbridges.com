@@ -1,0 +1,18 @@
+---
+import Base from "../layouts/Base.astro";
+import { loadCatalog } from "../data/catalog";
+
+const catalog = loadCatalog();
+const [first, ...rest] = catalog.site.name.split(" ");
+const second = rest.join(" ");
+---
+
+<Base title={catalog.site.name}>
+  <section class="hero">
+    <h1>
+      <span>{first}</span>
+      {second && <span>{second}</span>}
+    </h1>
+    <p>{catalog.site.role}</p>
+  </section>
+</Base>

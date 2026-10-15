@@ -1,0 +1,34 @@
+# .grok/config.toml
+# Workspace security boundaries and access rules for Grok CLI
+
+[workspace]
+name = "rob"
+strict_boundary = true          # Prevents Grok from traversing outside this directory
+
+[permissions]
+# File patterns Grok CLI is completely forbidden from reading or scanning
+deny_read = [
+  "**.env*",
+  "secrets/**",
+  "**/*.pem",
+  "**/*.key",
+  "~/**",                        # Blocks home directory access
+  "../**"                        # Blocks parent directory traversal
+]
+
+# Shell commands requiring explicit terminal prompt confirmation
+require_approval = [
+  "git push*",
+  "git reset*",
+  "rm -rf*",
+  "npm publish*"
+]
+
+[context]
+# Exclude heavy build outputs and metadata from context indexers
+ignore = [
+  "node_modules/**",
+  "dist/**",
+  ".astro/**",
+  ".git/**"
+]
