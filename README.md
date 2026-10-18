@@ -50,6 +50,34 @@ Collaborations are the bullets under Collaborations in `references/links.md`. Ea
 
 The bio is the paragraphs under About. A blank line starts a new paragraph. Those words, and the contact form, sit at the bottom of every page. A photo is one bullet, `Photo: public/images/about.jpg`, and that file has to exist. Until the paragraphs are written, the About heading is there on its own.
 
-The publish pipeline is still to come.
+## Publish
+
+Edit `references/links.md`. Commit, then push `main`.
+
+GitHub runs the checks. The live site changes only when they pass.
+
+A red check means a line in the catalog is incomplete, or the build failed. On your machine, run `npm test` and `npm run build`, fix the file, and push again.
 
 The contact form does not send email. Submit stays on the page while the site is being built.
+
+## First-time host setup
+
+Do this once. The publisher is GitHub Actions, on a Vercel Hobby project.
+
+1. From this folder, run `npx vercel@64.5.0 link`. Sign in, pick your account, and create a project. Leave Git unconnected. If Vercel later shows a repository under Project, Settings, Git, disconnect it.
+2. Open `.vercel/project.json`. It has `orgId` and `projectId`. That folder stays off git.
+3. In Vercel, open Account Settings, Tokens, and create a token. Copy it once.
+4. On GitHub, open BrunoPosa/robxbridges.com, then Settings, Secrets and variables, Actions. Add three repository secrets:
+   - `VERCEL_TOKEN` is the token.
+   - `VERCEL_ORG_ID` is `orgId`.
+   - `VERCEL_PROJECT_ID` is `projectId`.
+
+The next push to `main` publishes the site. Until those three secrets exist, the checks still run and the publish step skips.
+
+## Domain
+
+Register `robxbridges.com`. In the Vercel project, open Domains and add that name. At the registrar, add the DNS records Vercel shows.
+
+## Moving the site to Rob later
+
+In Vercel, transfer the project to Rob's account. Or have Rob create a project and replace the three GitHub secrets with his. The GitHub repo can move to his account the same way.
