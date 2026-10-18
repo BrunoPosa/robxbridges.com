@@ -17,9 +17,21 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 
 export type Track = {
   title: string;
-  url: string;
-  youtubeId: string;
+  playerId: string;
+  url?: string;
+  youtubeId?: string;
   summary?: string;
+};
+
+export type Album = {
+  title: string;
+  url: string;
+  playerId: string;
+  // "album" embeds with album=; a single embeds with track=.
+  kind: "album" | "track";
+  cover: string;
+  credit?: string;
+  tracks: Track[];
 };
 
 export type Film = {
@@ -34,6 +46,8 @@ export type Film = {
 export type DictionaryPiece = {
   title: string;
   url: string;
+  // A still in public/films. The video itself stays on Instagram.
+  poster: string;
   summary?: string;
   credits?: string;
 };
@@ -54,7 +68,7 @@ export type Catalog = {
     bandcamp: string;
     spotify: string;
   };
-  music: { bandcamp: string; spotify: string; tracks: Track[] };
+  music: { bandcamp: string; spotify: string; albums: Album[] };
   films: Film[];
   dictionary: DictionaryPiece[];
   collaborations: Collaboration[];
@@ -72,10 +86,18 @@ type Bullet = {
 };
 
 type Last =
-  | { kind: "track"; item: Track }
   | { kind: "film"; item: Film }
   | { kind: "dictionary"; item: DictionaryPiece }
   | { kind: "collaboration"; item: Collaboration };
+
+type OpenTrack = {
+  title: string;
+  lineNo: number;
+  url?: string;
+  youtubeId?: string;
+  summary?: string;
+  playerId?: string;
+};
 
 const SECTION_HEADINGS: Record<string, Section> = {
   Site: "site",
@@ -110,16 +132,27 @@ const CatalogShape = z.object({
   music: z.object({
     bandcamp: httpsUrl,
     spotify: httpsUrl,
-    tracks: z
+    albums: z
       .array(
         z.object({
           title: z.string().min(1),
           url: httpsUrl,
-          youtubeId: z.string().regex(YOUTUBE_ID),
-          summary: z.string().min(1).optional(),
+          playerId: z.string().regex(/^\d{6,12}$/),
+          kind: z.enum(["album", "track"]),
+          cover: z.string().min(1),
+          credit: z.string().min(1).optional(),
+          tracks: z.array(
+            z.object({
+              title: z.string().min(1),
+              playerId: z.string().regex(/^\d{6,12}$/),
+              url: httpsUrl.optional(),
+              youtubeId: z.string().regex(YOUTUBE_ID).optional(),
+              summary: z.string().min(1).optional(),
+            }),
+          ),
         }),
       )
-      .min(1, "Add at least one track under Music."),
+      .min(1, "Add at least one release under Music."),
   }),
   films: z
     .array(
@@ -138,6 +171,7 @@ const CatalogShape = z.object({
       z.object({
         title: z.string().min(1),
         url: httpsUrl,
+        poster: z.string().regex(/^public\/films\/[a-z0-9-]+\.jpg$/),
         summary: z.string().min(1).optional(),
         credits: z.string().min(1).optional(),
       }),
@@ -252,6 +286,42 @@ function requireHttps(bullet: Bullet, lineNo: number): void {
   }
 }
 
+function localFile(value: string, lineNo: number, field: string): string {
+  if (value.includes("..") || value.startsWith("/") || value.includes("://")) {
+    fail(lineNo, `${field} path should look like public/images/cover.jpg.`);
+  }
+  return value;
+}
+
+// The still for a Chinese Dictionary piece. The video stays on Instagram.
+function posterFile(value: string, lineNo: number): string {
+  const filePath = localFile(value, lineNo, "poster");
+  if (!/^public\/films\/[a-z0-9-]+\.jpg$/.test(filePath)) {
+    fail(lineNo, "poster needs a path like public/films/flow.jpg.");
+  }
+  return filePath;
+}
+
+function releaseKind(url: string, lineNo: number): "album" | "track" {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    fail(lineNo, "Album needs a Bandcamp link.");
+  }
+  const host = parsed.hostname.replace(/^www\./, "");
+  if (host.endsWith("bandcamp.com") && /^\/album\/[^/]+\/?$/.test(parsed.pathname)) {
+    return "album";
+  }
+  if (host.endsWith("bandcamp.com") && /^\/track\/[^/]+\/?$/.test(parsed.pathname)) {
+    return "track";
+  }
+  fail(
+    lineNo,
+    "Album needs a Bandcamp album or track link, like https://robbridgesmusic.bandcamp.com/album/luna-ep.",
+  );
+}
+
 function noteValue(bullet: Bullet, allowed: string[], lineNo: number): string {
   if (bullet.indent < 2) fail(lineNo, "indent notes with two spaces.");
   if (bullet.isUrl) {
@@ -287,10 +357,50 @@ function youtubeAt(
   }
 }
 
+type ReleaseLine =
+  | {
+      kind: "field";
+      label: "Album" | "Player" | "Cover" | "Credit";
+      value: string;
+    }
+  | { kind: "track"; title: string; url?: string };
+
+function readReleaseLine(line: string, lineNo: number): ReleaseLine {
+  const body = line.trim().slice(2).trim();
+  const urlMatch = body.match(/^(.*):\s+(https?:\/\/\S+)\s*$/);
+  if (urlMatch) {
+    const title = urlMatch[1]?.trim() ?? "";
+    const value = urlMatch[2] ?? "";
+    if (!title) fail(lineNo, "add a title before the link.");
+    if (title === "Bandcamp" || title === "Spotify") {
+      fail(lineNo, "list Bandcamp and Spotify before the releases.");
+    }
+    if (
+      title === "Album" ||
+      title === "Player" ||
+      title === "Cover" ||
+      title === "Credit"
+    ) {
+      return { kind: "field", label: title, value };
+    }
+    return { kind: "track", title, url: value };
+  }
+  const field = body.match(/^(Album|Player|Cover|Credit):\s*(.*)$/);
+  if (
+    field?.[1] === "Album" ||
+    field?.[1] === "Player" ||
+    field?.[1] === "Cover" ||
+    field?.[1] === "Credit"
+  ) {
+    return { kind: "field", label: field[1], value: (field[2] ?? "").trim() };
+  }
+  if (!body) fail(lineNo, "add a track title.");
+  return { kind: "track", title: body };
+}
+
 export function parseCatalog(source: string): Catalog {
   const lines = source.split(/\r?\n/);
   let section: Section | null = null;
-  let musicGroup: "profile" | "tracks" = "profile";
   let filmGroup: "films" | "dictionary" = "films";
   const seen = new Set<Section>();
   let sawDictionary = false;
@@ -299,8 +409,59 @@ export function parseCatalog(source: string): Catalog {
   const social = { youtube: "", instagram: "", bandcamp: "", spotify: "" };
   let musicBandcamp = "";
   let musicSpotify = "";
-  const tracks: Track[] = [];
+  const albums: Album[] = [];
+  let draft: {
+    title: string;
+    lineNo: number;
+    url: string;
+    playerId: string;
+    kind: "album" | "track";
+    cover: string;
+    credit: string;
+    tracks: Track[];
+  } | null = null;
+  let openTrack: OpenTrack | null = null;
   const films: Film[] = [];
+
+  function closeTrack(): void {
+    if (!openTrack) return;
+    const current = openTrack;
+    const playerId = current.playerId;
+    if (!playerId) fail(current.lineNo, `${current.title} needs a player number.`);
+    if (!draft) fail(current.lineNo, `${current.title} needs a release heading.`);
+    const track: Track = {
+      title: current.title,
+      playerId,
+      ...(current.url && current.youtubeId
+        ? { url: current.url, youtubeId: current.youtubeId }
+        : {}),
+      ...(current.summary ? { summary: current.summary } : {}),
+    };
+    draft.tracks.push(track);
+    openTrack = null;
+  }
+
+  function flushRelease(): void {
+    if (!draft) return;
+    closeTrack();
+    if (!draft.url) fail(draft.lineNo, `${draft.title} needs a Bandcamp link.`);
+    if (!draft.playerId) fail(draft.lineNo, `${draft.title} needs a Player number.`);
+    if (!draft.cover) fail(draft.lineNo, `${draft.title} needs a Cover file.`);
+    uniqueTitles(
+      draft.tracks.map((track) => track.title),
+      draft.title,
+    );
+    albums.push({
+      title: draft.title,
+      url: draft.url,
+      playerId: draft.playerId,
+      kind: draft.kind,
+      cover: draft.cover,
+      ...(draft.credit ? { credit: draft.credit } : {}),
+      tracks: draft.tracks,
+    });
+    draft = null;
+  }
   const dictionary: DictionaryPiece[] = [];
   const collaborations: Collaboration[] = [];
   const aboutLines: string[] = [];
@@ -320,10 +481,12 @@ export function parseCatalog(source: string): Catalog {
       const level = heading[1]?.length ?? 0;
       const title = heading[2]?.trim() ?? "";
       if (level === 1) {
+        if (section === "music") flushRelease();
         section = null;
         continue;
       }
       if (level === 2) {
+        if (section === "music") flushRelease();
         const next = SECTION_HEADINGS[title];
         if (!next) {
           fail(
@@ -334,13 +497,22 @@ export function parseCatalog(source: string): Catalog {
         section = next;
         seen.add(next);
         last = null;
-        if (next === "music") musicGroup = "profile";
         if (next === "films") filmGroup = "films";
         continue;
       }
       if (section === "music") {
-        musicGroup = "tracks";
+        flushRelease();
         last = null;
+        draft = {
+          title,
+          lineNo,
+          url: "",
+          playerId: "",
+          kind: "album",
+          cover: "",
+          credit: "",
+          tracks: [],
+        };
         continue;
       }
       if (section === "films") {
@@ -370,17 +542,97 @@ export function parseCatalog(source: string): Catalog {
       );
     }
 
+    if (section === "music") {
+      const indent = line.match(/^ */)?.[0].length ?? 0;
+      if (indent > 0) {
+        const bullet = readBullet(line, lineNo);
+        requireHttps(bullet, lineNo);
+        if (!openTrack) fail(lineNo, "this note needs a track directly above it.");
+        const value = noteValue(bullet, ["summary", "player"], lineNo);
+        if (bullet.label === "summary") openTrack.summary = value;
+        else if (!/^\d{6,12}$/.test(value)) {
+          fail(lineNo, "player needs the Bandcamp track number.");
+        } else openTrack.playerId = value;
+        continue;
+      }
+      if (!draft) {
+        const bullet = readBullet(line, lineNo);
+        requireHttps(bullet, lineNo);
+        if (!bullet.isUrl) fail(lineNo, `${bullet.label} needs an https link.`);
+        if (bullet.label === "Bandcamp") musicBandcamp = bullet.value;
+        else if (bullet.label === "Spotify")
+          musicSpotify = stripSpotifyShare(bullet.value);
+        else {
+          fail(
+            lineNo,
+            "under Music, list Bandcamp and Spotify, then one heading per release.",
+          );
+        }
+        continue;
+      }
+      const item = readReleaseLine(line, lineNo);
+      if (item.kind === "field") {
+        closeTrack();
+        if (item.label === "Album") {
+          if (!item.value.startsWith("https://")) {
+            fail(lineNo, "Album needs a Bandcamp link.");
+          }
+          if (draft.url) fail(lineNo, "Album is already set.");
+          draft.kind = releaseKind(item.value, lineNo);
+          draft.url = item.value;
+        } else if (item.label === "Player") {
+          if (!/^\d{6,12}$/.test(item.value)) {
+            fail(lineNo, "Player needs the number from Bandcamp, such as 283143371.");
+          }
+          if (draft.playerId) fail(lineNo, "Player is already set.");
+          draft.playerId = item.value;
+        } else if (item.label === "Cover") {
+          if (!item.value || item.value.startsWith("https://")) {
+            fail(
+              lineNo,
+              "Cover needs a file path like public/images/covers/luna-ep.jpg.",
+            );
+          }
+          if (draft.cover) fail(lineNo, "Cover is already set.");
+          draft.cover = localFile(item.value, lineNo, "Cover");
+        } else {
+          if (!item.value || item.value.startsWith("https://")) {
+            fail(lineNo, "Credit should be a name, not a link.");
+          }
+          if (draft.credit) fail(lineNo, "Credit is already set.");
+          draft.credit = item.value;
+        }
+        continue;
+      }
+      closeTrack();
+      const opened: OpenTrack = { title: item.title, lineNo };
+      if (item.url) {
+        if (!item.url.startsWith("https://")) fail(lineNo, "use an https link.");
+        const video = youtubeAt(item.url, lineNo);
+        opened.url = item.url;
+        opened.youtubeId = video.id;
+      }
+      openTrack = opened;
+      continue;
+    }
+
     const bullet = readBullet(line, lineNo);
     requireHttps(bullet, lineNo);
 
     if (bullet.indent > 0) {
       if (!last) fail(lineNo, "this note needs a work bullet directly above it.");
-      if (last.kind === "track") {
-        last.item.summary = noteValue(bullet, ["summary"], lineNo);
-      } else if (last.kind === "film" || last.kind === "dictionary") {
+      if (last.kind === "film") {
         const value = noteValue(bullet, ["summary", "credits"], lineNo);
         if (bullet.label === "summary") last.item.summary = value;
         else last.item.credits = value;
+      } else if (last.kind === "dictionary") {
+        const value = noteValue(bullet, ["summary", "credits", "poster"], lineNo);
+        if (bullet.label === "summary") last.item.summary = value;
+        else if (bullet.label === "credits") last.item.credits = value;
+        else {
+          if (last.item.poster) fail(lineNo, "poster is already set.");
+          last.item.poster = posterFile(value, lineNo);
+        }
       } else {
         const value = noteValue(bullet, ["role", "project", "year"], lineNo);
         if (bullet.label === "role") last.item.role = value;
@@ -419,28 +671,6 @@ export function parseCatalog(source: string): Catalog {
       continue;
     }
 
-    if (section === "music" && musicGroup === "profile") {
-      if (!bullet.isUrl) fail(lineNo, `${bullet.label} needs an https link.`);
-      if (bullet.label === "Bandcamp") musicBandcamp = bullet.value;
-      else if (bullet.label === "Spotify")
-        musicSpotify = stripSpotifyShare(bullet.value);
-      else fail(lineNo, "under Music, list Bandcamp and Spotify before the tracks.");
-      continue;
-    }
-
-    if (section === "music" && musicGroup === "tracks") {
-      if (!bullet.isUrl) fail(lineNo, "a track needs a YouTube link.");
-      const video = youtubeAt(bullet.value, lineNo);
-      const track: Track = {
-        title: bullet.label,
-        url: bullet.value,
-        youtubeId: video.id,
-      };
-      tracks.push(track);
-      last = { kind: "track", item: track };
-      continue;
-    }
-
     if (section === "films" && filmGroup === "films") {
       if (!bullet.isUrl) fail(lineNo, "a film needs a YouTube link.");
       const video = youtubeAt(bullet.value, lineNo);
@@ -464,7 +694,11 @@ export function parseCatalog(source: string): Catalog {
         if (error instanceof CatalogError) fail(lineNo, error.message);
         throw error;
       }
-      const piece: DictionaryPiece = { title: bullet.label, url: bullet.value };
+      const piece: DictionaryPiece = {
+        title: bullet.label,
+        url: bullet.value,
+        poster: "",
+      };
       dictionary.push(piece);
       last = { kind: "dictionary", item: piece };
       continue;
@@ -488,16 +722,11 @@ export function parseCatalog(source: string): Catalog {
       if (!bullet.value || bullet.isUrl) {
         fail(lineNo, "Photo needs a file path like public/images/about.jpg.");
       }
-      if (
-        bullet.value.includes("..") ||
-        bullet.value.startsWith("/") ||
-        bullet.value.includes("://")
-      ) {
-        fail(lineNo, "Photo path should look like public/images/about.jpg.");
-      }
-      aboutPhoto = bullet.value;
+      aboutPhoto = localFile(bullet.value, lineNo, "Photo");
     }
   }
+
+  flushRelease();
 
   for (const [heading, key] of Object.entries(SECTION_HEADINGS)) {
     if (!seen.has(key)) {
@@ -509,7 +738,7 @@ export function parseCatalog(source: string): Catalog {
   }
 
   uniqueTitles(
-    tracks.map((track) => track.title),
+    albums.map((album) => album.title),
     "Music",
   );
   uniqueTitles(
@@ -531,15 +760,26 @@ export function parseCatalog(source: string): Catalog {
   if (films[0]?.startSeconds === null || films[0]?.startSeconds === undefined) {
     throw new CatalogError("Aryk's YouTube link needs a start time, such as t=1744s.");
   }
+  for (const piece of dictionary) {
+    if (!piece.poster) {
+      throw new CatalogError(
+        `"${piece.title}" needs a still. Under that piece, add a line: poster: public/films/name.jpg`,
+      );
+    }
+  }
 
   const about = aboutLines
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const draft = {
+  const catalogDraft = {
     site,
     social,
-    music: { bandcamp: musicBandcamp, spotify: musicSpotify, tracks },
+    music: {
+      bandcamp: musicBandcamp,
+      spotify: musicSpotify,
+      albums,
+    },
     films,
     dictionary,
     collaborations,
@@ -547,7 +787,7 @@ export function parseCatalog(source: string): Catalog {
     ...(aboutPhoto ? { aboutPhoto } : {}),
   };
 
-  const parsed = CatalogShape.safeParse(draft);
+  const parsed = CatalogShape.safeParse(catalogDraft);
   if (!parsed.success) {
     const message = parsed.error.issues.map((issue) => issue.message).join(" ");
     throw new CatalogError(message);
@@ -579,6 +819,21 @@ export function loadCatalog(root = process.cwd()): Catalog {
     if (!fs.existsSync(absolute)) {
       throw new CatalogError(
         `references/links.md — photo file not found: ${catalog.aboutPhoto}`,
+      );
+    }
+  }
+  for (const album of catalog.music.albums) {
+    const absolute = path.join(root, album.cover);
+    if (!fs.existsSync(absolute)) {
+      throw new CatalogError(
+        `references/links.md — cover file not found: ${album.cover}`,
+      );
+    }
+  }
+  for (const piece of catalog.dictionary) {
+    if (!fs.existsSync(path.join(root, piece.poster))) {
+      throw new CatalogError(
+        `references/links.md — poster file not found: ${piece.poster}`,
       );
     }
   }

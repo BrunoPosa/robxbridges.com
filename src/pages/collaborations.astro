@@ -1,8 +1,23 @@
 ---
+// Collaborations come from references/links.md, in the order written there.
+// A row is a name plus an https link. Optional notes sit under that name:
+//
+// - Ada Example: https://example.com
+//   - role: Director
+//   - project: Aryk
+//   - year: 2024
+//
+// Leave ## Collaborations empty until there is a real person to list.
 import Base from "../layouts/Base.astro";
-import { loadCatalog } from "../data/catalog";
+import { loadCatalog, type Collaboration } from "../data/catalog";
 
 const { collaborations } = loadCatalog();
+
+function metaLine(collaboration: Collaboration): string {
+  return [collaboration.role, collaboration.project, collaboration.year]
+    .filter((part) => part)
+    .join(" · ");
+}
 ---
 
 <Base title="Collaborations">
@@ -12,14 +27,17 @@ const { collaborations } = loadCatalog();
       <p class="quiet">Selected work with others will be listed here.</p>
     ) : (
       <ul class="work-list">
-        {collaborations.map((collaboration) => (
-          <li>
-            <a href={collaboration.url} target="_blank" rel="noopener noreferrer">
-              {collaboration.name}
-              {collaboration.role ? ` — ${collaboration.role}` : ""}
-            </a>
-          </li>
-        ))}
+        {collaborations.map((collaboration) => {
+          const meta = metaLine(collaboration);
+          return (
+            <li>
+              <a href={collaboration.url} target="_blank" rel="noopener noreferrer">
+                <span class="work-name">{collaboration.name}</span>
+                {meta && <span class="work-meta">{meta}</span>}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     )}
   </article>

@@ -9,10 +9,11 @@ import { loadCatalog } from "../data/catalog";
 interface Props {
   title: string;
   description?: string;
+  overlayNav?: boolean;
 }
 
 const catalog = loadCatalog();
-const { title, description = catalog.site.role } = Astro.props;
+const { title, description = catalog.site.role, overlayNav = false } = Astro.props;
 const fullTitle =
   title === catalog.site.name
     ? `${catalog.site.name} — ${catalog.site.role}`
@@ -39,7 +40,7 @@ const canonical = Astro.site
     <a class="skip" href="#content">
       Skip to content
     </a>
-    <Nav name={catalog.site.name} />
+    <Nav name={catalog.site.name} overlay={overlayNav} />
     <main id="content">
       <slot />
     </main>

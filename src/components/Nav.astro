@@ -1,9 +1,10 @@
 ---
 interface Props {
   name: string;
+  overlay?: boolean;
 }
 
-const { name } = Astro.props;
+const { name, overlay = false } = Astro.props;
 const path = Astro.url.pathname.replace(/\/$/, "") || "/";
 const links = [
   { href: "/music", label: "Music" },
@@ -13,7 +14,7 @@ const links = [
 ];
 ---
 
-<header class="site-header">
+<header class:list={["site-header", { overlay }]}>
   <a class="wordmark" href="/">
     {name}
   </a>
@@ -68,6 +69,27 @@ const links = [
   nav a[aria-current="page"],
   nav a:hover {
     color: var(--bone);
+  }
+
+  .site-header.overlay {
+    position: absolute;
+    inset: 0 0 auto;
+    background: transparent;
+    border-bottom: none;
+    z-index: 4;
+  }
+
+  /* The sky in the home still is pale. This fade keeps the links readable. */
+  .site-header.overlay::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 9rem;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(8, 7, 6, 0.62), rgba(8, 7, 6, 0));
   }
 
   @media (max-width: 720px) {

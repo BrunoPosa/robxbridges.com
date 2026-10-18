@@ -1,4 +1,8 @@
 ---
+// The name sits between two pictures of the same frame.
+// public/images/hero-plate.jpg is the full still.
+// public/images/hero-foreground.png is only the shape that covers the letters.
+// Replace both files together, and keep them the same pixel size.
 import Base from "../layouts/Base.astro";
 import { loadCatalog } from "../data/catalog";
 
@@ -7,12 +11,30 @@ const [first, ...rest] = catalog.site.name.split(" ");
 const second = rest.join(" ");
 ---
 
-<Base title={catalog.site.name}>
+<Base title={catalog.site.name} overlayNav>
   <section class="hero">
-    <h1>
-      <span>{first}</span>
-      {second && <span>{second}</span>}
-    </h1>
-    <p>{catalog.site.role}</p>
+    <img
+      class="hero-plate"
+      src="/images/hero-plate.jpg"
+      alt=""
+      width="1280"
+      height="720"
+      fetchpriority="high"
+    />
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="hero-copy">
+      <h1>
+        <span>{first}</span>
+        {second && <span>{second}</span>}
+      </h1>
+    </div>
+    <img
+      class="hero-cutout"
+      src="/images/hero-foreground.png"
+      alt=""
+      width="1280"
+      height="720"
+    />
+    <p class="hero-role">{catalog.site.role}</p>
   </section>
 </Base>

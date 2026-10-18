@@ -1,47 +1,607 @@
 ---
-// Film order follows references/links.md. Aryk stays first.
-// Scroll-snap playback comes in the films pass. These titles open the videos for now.
+// Film order follows references/links.md. Keep Aryk first.
+// A summary line shows under the title. A credits line stays behind Credits.
+// Chinese Dictionary pieces show their still, then Instagram's embed in that square.
+// The video file stays on Instagram.
 import Base from "../layouts/Base.astro";
-import { loadCatalog } from "../data/catalog";
+import { loadCatalog, publicSrc } from "../data/catalog";
 
 const { films, dictionary } = loadCatalog();
+
+type Slide = {
+  title: string;
+  url: string;
+  poster: string;
+  summary?: string;
+  credits?: string;
+  kicker?: string;
+  youtubeId?: string;
+  startSeconds?: number;
+  instagram?: string;
+  outbound: string;
+};
+
+function instagramEmbed(url: string): string {
+  const code = new URL(url).pathname.split("/").filter(Boolean)[1] ?? "";
+  return `https://www.instagram.com/p/${code}/embed/`;
+}
+
+const slides: Slide[] = [
+  ...films.map((film) => ({
+    title: film.title,
+    url: film.url,
+    poster: `https://i.ytimg.com/vi/${film.youtubeId}/hqdefault.jpg`,
+    summary: film.summary,
+    credits: film.credits,
+    youtubeId: film.youtubeId,
+    startSeconds: film.startSeconds ?? 0,
+    outbound: "YouTube",
+  })),
+  ...dictionary.map((piece) => ({
+    title: piece.title,
+    url: piece.url,
+    poster: piece.poster ? publicSrc(piece.poster) : "",
+    summary: piece.summary,
+    credits: piece.credits,
+    kicker: "Chinese Dictionary",
+    instagram: instagramEmbed(piece.url),
+    outbound: "Instagram",
+  })),
+];
+
+function indexLabel(index: number): string {
+  return String(index + 1).padStart(2, "0");
+}
 ---
 
 <Base title="Films">
-  <article class="sheet">
-    <h1>Films</h1>
-    <ol class="work-list">
-      {films.map((film) => (
-        <li>
-          <a href={film.url} target="_blank" rel="noopener noreferrer">
-            {film.title}
-            {(film.summary || film.credits) && (
-              <span class="work-meta">
-                {film.summary}
-                {film.summary && film.credits ? " — " : ""}
-                {film.credits}
-              </span>
+  <button type="button" class="film-top">
+    Top
+  </button>
+  <nav class="film-rail" aria-label="Works">
+    {slides.map((slide, index) => (
+      <button
+        type="button"
+        class="film-rail-item"
+        aria-current={index === 0 ? "true" : undefined}
+      >
+        <span class="film-rail-line"></span>
+        <span class="film-rail-name">{slide.title}</span>
+      </button>
+    ))}
+  </nav>
+  <div class="reel">
+    <h1 class="reel-title">Films</h1>
+    {slides.map((slide, index) => (
+      <article
+        class="film-slide"
+        data-title={slide.title}
+        data-youtube-id={slide.youtubeId}
+        data-start={slide.youtubeId ? slide.startSeconds : undefined}
+        data-instagram={slide.instagram}
+      >
+        <div class="film-stage">
+          {slide.instagram ? (
+            <div class="film-embed">
+              <img
+                class="film-embed-still"
+                src={slide.poster}
+                alt=""
+                width="640"
+                height="640"
+                loading="lazy"
+              />
+              <div class="film-embed-frame"></div>
+              <button type="button" class="film-play">
+                Play
+              </button>
+            </div>
+          ) : (
+            <>
+              <img
+                class="film-poster"
+                src={slide.poster}
+                alt=""
+                width="480"
+                height="360"
+                loading={index === 0 ? "eager" : "lazy"}
+              />
+              <button type="button" class="film-play">
+                Play
+              </button>
+              <div class="film-player"></div>
+              {/* Sits over the picture so a scroll still moves to the next film.
+                  The bottom strip stays open for the player controls. */}
+              <div class="film-scroll"></div>
+            </>
+          )}
+        </div>
+        <div class="film-caption">
+          <p class="film-index">{indexLabel(index)}</p>
+          <div class="film-copy">
+            {slide.kicker && <p class="film-kicker">{slide.kicker}</p>}
+            <h2>{slide.title}</h2>
+            {slide.summary && <p>{slide.summary}</p>}
+          </div>
+          <div class="film-actions">
+            {!slide.instagram && (
+              <button type="button" class="film-sound" aria-pressed="false">
+                Sound
+              </button>
             )}
-          </a>
-        </li>
-      ))}
-    </ol>
-    <h2>Chinese Dictionary</h2>
-    <ol class="work-list">
-      {dictionary.map((piece) => (
-        <li>
-          <a href={piece.url} target="_blank" rel="noopener noreferrer">
-            {piece.title}
-            {(piece.summary || piece.credits) && (
-              <span class="work-meta">
-                {piece.summary}
-                {piece.summary && piece.credits ? " — " : ""}
-                {piece.credits}
-              </span>
+            {slide.credits && (
+              <button
+                type="button"
+                class="film-credits"
+                aria-expanded="false"
+                aria-controls={`credits-${index}`}
+              >
+                Credits
+              </button>
             )}
-          </a>
-        </li>
-      ))}
-    </ol>
-  </article>
+            <a href={slide.url} target="_blank" rel="noopener noreferrer">
+              {slide.outbound}
+            </a>
+          </div>
+        </div>
+        {slide.credits && (
+          <div class="film-credits-overlay" id={`credits-${index}`} hidden>
+            <div
+              class="film-credits-card"
+              role="dialog"
+              aria-labelledby={`credits-label-${index}`}
+            >
+              <h3 id={`credits-label-${index}`}>Credits</h3>
+              <p>{slide.credits}</p>
+              <button type="button" class="film-credits-close">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </article>
+    ))}
+  </div>
 </Base>
+
+<script>
+  // One YouTube player at a time. Aryk starts on its own, muted, because a
+  // browser will not start sound by itself. Sound keeps that choice for the
+  // next YouTube film. A Chinese Dictionary piece shows its still, and loads
+  // one Instagram embed only while it is the piece on screen.
+  // prefers-reduced-motion waits for Play.
+
+  interface YouTubePlayer {
+    destroy: () => void;
+    mute: () => void;
+    unMute: () => void;
+    playVideo: () => void;
+    pauseVideo: () => void;
+    getPlayerState: () => number;
+    getIframe: () => HTMLIFrameElement;
+  }
+
+  interface YouTubePlayerOptions {
+    videoId: string;
+    width?: string;
+    height?: string;
+    host?: string;
+    playerVars?: Record<string, number | string>;
+    events?: {
+      onReady?: (event: { target: YouTubePlayer }) => void;
+    };
+  }
+
+  interface YouTubeNamespace {
+    Player: new (element: HTMLElement, options: YouTubePlayerOptions) => YouTubePlayer;
+  }
+
+  const PLAYING = 1;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function syncHeader(): void {
+    const header = document.querySelector(".site-header");
+    if (!(header instanceof HTMLElement)) return;
+    document.documentElement.style.setProperty(
+      "--header-live",
+      `${header.offsetHeight}px`,
+    );
+  }
+
+  syncHeader();
+  window.addEventListener("resize", syncHeader);
+  const ratios = new Map<Element, number>();
+
+  let soundOn = false;
+  let active: HTMLElement | null = null;
+  let player: YouTubePlayer | null = null;
+  let mode: "api" | "plain" | "none" = "none";
+  let token = 0;
+  let pending = 0;
+  let apiReady: Promise<void> | null = null;
+  let topTimer = 0;
+
+  function pageWindow(): Window & {
+    YT?: YouTubeNamespace;
+    onYouTubeIframeAPIReady?: () => void;
+  } {
+    return window as Window & {
+      YT?: YouTubeNamespace;
+      onYouTubeIframeAPIReady?: () => void;
+    };
+  }
+
+  function readYouTube(): YouTubeNamespace | undefined {
+    const yt = pageWindow().YT;
+    if (!yt || typeof yt.Player !== "function") return undefined;
+    return yt;
+  }
+
+  function syncSound(): void {
+    for (const button of document.querySelectorAll(".film-sound")) {
+      if (!(button instanceof HTMLButtonElement)) continue;
+      button.setAttribute("aria-pressed", soundOn ? "true" : "false");
+      button.textContent = soundOn ? "Mute" : "Sound";
+    }
+  }
+
+  function showPlay(slide: HTMLElement): void {
+    const play = slide.querySelector(".film-play");
+    if (play instanceof HTMLButtonElement) play.hidden = false;
+  }
+
+  function closeCredits(scope: ParentNode = document): void {
+    for (const overlay of scope.querySelectorAll(".film-credits-overlay")) {
+      if (overlay instanceof HTMLElement) overlay.hidden = true;
+    }
+    for (const button of scope.querySelectorAll(".film-credits")) {
+      if (button instanceof HTMLButtonElement)
+        button.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function shutCredits(overlay: HTMLElement, returnFocus: boolean): void {
+    const slide = overlay.closest(".film-slide");
+    overlay.hidden = true;
+    const button = slide?.querySelector(".film-credits");
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.setAttribute("aria-expanded", "false");
+    if (returnFocus) button.focus();
+  }
+
+  function openCredits(slide: HTMLElement): void {
+    const overlay = slide.querySelector(".film-credits-overlay");
+    const button = slide.querySelector(".film-credits");
+    if (!(overlay instanceof HTMLElement) || !(button instanceof HTMLButtonElement))
+      return;
+    closeCredits();
+    overlay.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    const close = overlay.querySelector(".film-credits-close");
+    if (close instanceof HTMLButtonElement) close.focus();
+  }
+
+  function ensureApi(): Promise<void> {
+    if (readYouTube()) return Promise.resolve();
+    if (apiReady) return apiReady;
+    apiReady = new Promise((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error("timeout")), 8000);
+      pageWindow().onYouTubeIframeAPIReady = () => {
+        window.clearTimeout(timer);
+        resolve();
+      };
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      tag.onerror = () => {
+        window.clearTimeout(timer);
+        reject(new Error("blocked"));
+      };
+      document.head.append(tag);
+    });
+    return apiReady;
+  }
+
+  function dropPlayer(): void {
+    try {
+      player?.destroy();
+    } catch {
+      // A player that never finished loading can already be gone.
+    }
+    player = null;
+    mode = "none";
+  }
+
+  function stop(slide: HTMLElement): void {
+    token += 1;
+    dropPlayer();
+    const embed = slide.querySelector(".film-embed-frame");
+    if (embed) embed.replaceChildren();
+    else slide.querySelector(".film-player")?.replaceChildren();
+    slide.classList.remove("is-playing");
+    showPlay(slide);
+    closeCredits(slide);
+  }
+
+  function fit(frame: HTMLIFrameElement, title: string): void {
+    frame.classList.add("film-frame");
+    frame.title = title;
+    frame.style.width = "100%";
+    frame.style.height = "100%";
+    frame.allow = "autoplay; fullscreen; picture-in-picture";
+    frame.setAttribute("allowfullscreen", "");
+    frame.referrerPolicy = "strict-origin-when-cross-origin";
+  }
+
+  function mountPlain(slide: HTMLElement, mine: number): void {
+    const holder = slide.querySelector(".film-player");
+    const videoId = slide.dataset.youtubeId ?? "";
+    if (!(holder instanceof HTMLElement) || !videoId || mine !== token) return;
+    const start = slide.dataset.start || "0";
+    const frame = document.createElement("iframe");
+    const mute = soundOn ? "0" : "1";
+    frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&mute=${mute}&start=${encodeURIComponent(start)}&playsinline=1&rel=0`;
+    fit(frame, slide.dataset.title || "Film");
+    holder.replaceChildren(frame);
+    mode = "plain";
+    slide.classList.add("is-playing");
+  }
+
+  function mount(slide: HTMLElement): void {
+    const mine = ++token;
+    const holder = slide.querySelector(".film-player");
+    const videoId = slide.dataset.youtubeId ?? "";
+    if (!(holder instanceof HTMLElement) || !videoId) return;
+    dropPlayer();
+    holder.replaceChildren();
+    const start = Number(slide.dataset.start || "0");
+    const title = slide.dataset.title || "Film";
+    const slot = document.createElement("div");
+    holder.append(slot);
+
+    ensureApi()
+      .then(() => {
+        const yt = readYouTube();
+        if (!yt || mine !== token || active !== slide) return;
+        new yt.Player(slot, {
+          videoId,
+          width: "100%",
+          height: "100%",
+          host: "https://www.youtube-nocookie.com",
+          playerVars: {
+            autoplay: 1,
+            mute: soundOn ? 0 : 1,
+            start: Number.isFinite(start) ? start : 0,
+            playsinline: 1,
+            rel: 0,
+            modestbranding: 1,
+            origin: window.location.origin,
+          },
+          events: {
+            onReady(event) {
+              if (mine !== token || active !== slide) {
+                event.target.destroy();
+                return;
+              }
+              player = event.target;
+              mode = "api";
+              fit(event.target.getIframe(), title);
+              if (soundOn) event.target.unMute();
+              else event.target.mute();
+              event.target.playVideo();
+              slide.classList.add("is-playing");
+            },
+          },
+        });
+      })
+      .catch(() => {
+        if (mine !== token || active !== slide) return;
+        mountPlain(slide, mine);
+      });
+  }
+
+  function mountEmbed(slide: HTMLElement): void {
+    const mine = ++token;
+    const holder = slide.querySelector(".film-embed-frame");
+    const src = slide.dataset.instagram ?? "";
+    if (!(holder instanceof HTMLElement) || !src) return;
+    const frame = document.createElement("iframe");
+    frame.src = src;
+    frame.title = slide.dataset.title || "Film";
+    frame.className = "film-frame";
+    frame.setAttribute("scrolling", "no");
+    frame.allow =
+      "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
+    frame.setAttribute("allowfullscreen", "");
+    frame.referrerPolicy = "strict-origin-when-cross-origin";
+    frame.addEventListener("load", () => {
+      if (mine !== token || active !== slide) return;
+      slide.classList.add("is-playing");
+    });
+    holder.replaceChildren(frame);
+  }
+
+  function activate(slide: HTMLElement, autoplay: boolean): void {
+    if (active === slide && slide.classList.contains("is-playing")) return;
+    if (active && active !== slide) stop(active);
+    active = slide;
+    markRail(slide);
+    const playable = Boolean(slide.dataset.youtubeId || slide.dataset.instagram);
+    if (!autoplay || !playable) return;
+    const play = slide.querySelector(".film-play");
+    if (play instanceof HTMLButtonElement) play.hidden = true;
+    if (slide.dataset.instagram) mountEmbed(slide);
+    else mount(slide);
+  }
+
+  function choose(): void {
+    let best: HTMLElement | null = null;
+    let bestRatio = 0.55;
+    for (const [element, ratio] of ratios) {
+      if (ratio >= bestRatio && element instanceof HTMLElement) {
+        best = element;
+        bestRatio = ratio;
+      }
+    }
+    if (!best || best === active) return;
+    activate(best, !reduced);
+  }
+
+  function setSound(on: boolean): void {
+    soundOn = on;
+    syncSound();
+    if (!active?.dataset.youtubeId) return;
+    if (mode === "api" && player) {
+      if (on) {
+        player.unMute();
+        player.playVideo();
+      } else {
+        player.mute();
+      }
+      return;
+    }
+    const play = active.querySelector(".film-play");
+    if (play instanceof HTMLButtonElement) play.hidden = true;
+    mount(active);
+  }
+
+  function markRail(slide: HTMLElement | null): void {
+    const slides = [...document.querySelectorAll(".film-slide")];
+    const index = slide ? slides.indexOf(slide) : -1;
+    document.querySelectorAll(".film-rail-item").forEach((item, itemIndex) => {
+      if (!(item instanceof HTMLButtonElement)) return;
+      if (itemIndex === index) item.setAttribute("aria-current", "true");
+      else item.removeAttribute("aria-current");
+    });
+  }
+
+  function scrollFilmsTo(top: number): void {
+    const root = document.documentElement;
+    closeCredits();
+    root.style.scrollSnapType = "none";
+    let restored = false;
+    const restore = () => {
+      if (restored) return;
+      restored = true;
+      window.clearTimeout(topTimer);
+      root.style.scrollSnapType = "";
+    };
+    const destination = Math.max(0, top);
+    window.scrollTo({ top: destination, behavior: reduced ? "auto" : "smooth" });
+    if (reduced || Math.abs(window.scrollY - destination) < 2) {
+      restore();
+      return;
+    }
+    window.addEventListener("scrollend", restore, { once: true });
+    window.clearTimeout(topTimer);
+    topTimer = window.setTimeout(restore, 2000);
+  }
+
+  function goTop(): void {
+    scrollFilmsTo(0);
+  }
+
+  function goToSlide(slide: HTMLElement): void {
+    const header = document.querySelector(".site-header");
+    const headerHeight = header instanceof HTMLElement ? header.offsetHeight : 0;
+    const top = slide.getBoundingClientRect().top + window.scrollY - headerHeight;
+    scrollFilmsTo(top);
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) ratios.set(entry.target, entry.intersectionRatio);
+      window.clearTimeout(pending);
+      pending = window.setTimeout(choose, 160);
+    },
+    { threshold: [0.2, 0.4, 0.55, 0.75] },
+  );
+
+  for (const slide of document.querySelectorAll(".film-slide")) {
+    observer.observe(slide);
+  }
+
+  for (const button of document.querySelectorAll(".film-play")) {
+    button.addEventListener("click", () => {
+      const slide = button.closest(".film-slide");
+      if (!(slide instanceof HTMLElement)) return;
+      activate(slide, true);
+    });
+  }
+
+  for (const button of document.querySelectorAll(".film-sound")) {
+    button.addEventListener("click", () => {
+      setSound(!soundOn);
+    });
+  }
+
+  for (const button of document.querySelectorAll(".film-credits")) {
+    button.addEventListener("click", () => {
+      const slide = button.closest(".film-slide");
+      if (!(slide instanceof HTMLElement) || !(button instanceof HTMLButtonElement))
+        return;
+      const overlay = slide.querySelector(".film-credits-overlay");
+      if (!(overlay instanceof HTMLElement)) return;
+      if (overlay.hidden) openCredits(slide);
+      else shutCredits(overlay, true);
+    });
+  }
+
+  for (const overlay of document.querySelectorAll(".film-credits-overlay")) {
+    overlay.addEventListener("click", (event) => {
+      if (!(overlay instanceof HTMLElement) || event.target !== overlay) return;
+      shutCredits(overlay, true);
+    });
+    const close = overlay.querySelector(".film-credits-close");
+    close?.addEventListener("click", () => {
+      if (overlay instanceof HTMLElement) shutCredits(overlay, true);
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const open = document.querySelector(".film-credits-overlay:not([hidden])");
+    if (open instanceof HTMLElement) shutCredits(open, true);
+  });
+
+  const top = document.querySelector(".film-top");
+  top?.addEventListener("click", goTop);
+
+  const rail = document.querySelector(".film-rail");
+  const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+  document.querySelectorAll(".film-rail-item").forEach((button, index) => {
+    button.addEventListener("click", () => {
+      const slide = document.querySelectorAll(".film-slide")[index];
+      if (!(slide instanceof HTMLElement) || !(button instanceof HTMLButtonElement))
+        return;
+      // A phone has no hover. The first tap opens the titles; the next one goes there.
+      if (
+        !finePointer.matches &&
+        rail instanceof HTMLElement &&
+        !rail.classList.contains("is-open")
+      ) {
+        rail.classList.add("is-open");
+        return;
+      }
+      if (rail instanceof HTMLElement) rail.classList.remove("is-open");
+      goToSlide(slide);
+      button.blur();
+    });
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (!(rail instanceof HTMLElement) || !rail.classList.contains("is-open")) return;
+    if (event.target instanceof Node && rail.contains(event.target)) return;
+    rail.classList.remove("is-open");
+  });
+
+  for (const layer of document.querySelectorAll(".film-scroll")) {
+    layer.addEventListener("click", () => {
+      const slide = layer.closest(".film-slide");
+      if (!(slide instanceof HTMLElement)) return;
+      if (mode !== "api" || !player || active !== slide) return;
+      if (player.getPlayerState() === PLAYING) player.pauseVideo();
+      else player.playVideo();
+    });
+  }
+</script>
