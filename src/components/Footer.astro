@@ -39,7 +39,7 @@ const year = new Date().getFullYear();
 
     <section id="contact" aria-labelledby="contact-heading">
       <h2 id="contact-heading">Contact</h2>
-      <form id="contact-form" onsubmit="return false">
+      <form id="contact-form" method="post" onsubmit="return false">
         <label>
           Name
           <input name="name" type="text" autocomplete="name" required />
@@ -61,7 +61,7 @@ const year = new Date().getFullYear();
         form?.addEventListener("submit", () => {
           if (!(form instanceof HTMLFormElement) || !form.checkValidity()) return;
           if (note) {
-            note.textContent = "Nothing was sent. Mail is off while the site is being built.";
+            note.textContent = "Nothing was sent.";
           }
         });
       </script>

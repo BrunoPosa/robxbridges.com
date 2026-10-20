@@ -32,9 +32,9 @@ To use another picture, replace both files. Keep the same names and the same pix
 
 ## Music
 
-The music page plays every release under Music in `references/links.md`, in that order. Each release is a heading, then the Bandcamp link, the player number, and the cover file in `public/images/covers/`. A single is just those three lines. An album lists its tracks under them. A track with a video uses a YouTube link and an indented `player` line. A track without a video is the title, then that `player` line. `Credit` replaces the name on that card.
+The music page plays every release under Music in `references/links.md`, in that order. Each release is a heading, then the Bandcamp link, the player number, and the cover file in `public/images/covers/`. A single is just those three lines. An album lists its tracks under them. A track with a video uses a YouTube link and an indented `player` line. A track without a video is the title, then that `player` line. `Credit` shows above the player on that release. A cover should be about 800 pixels on the long side. A much larger file fails `npm test`.
 
-The large cover is the release that is playing. Choosing Play, or a track, switches it.
+The large cover is the release in view. Bandcamp’s player sits on the right, and on a phone it sits under the cover. The play button on that player starts the music, and the timeline and track times stay in the player. With a mouse or trackpad, the wheel over the cover and the player moves one release at a time. Prev, Next, and the arrow keys do the same. On a phone, a sideways swipe on the cover moves one release. A track with a video has a Video link under the player.
 
 ## Films
 
@@ -77,6 +77,8 @@ The next push to `main` publishes the site. Until those three secrets exist, the
 ## Domain
 
 Register `robxbridges.com`. In the Vercel project, open Domains and add that name. At the registrar, add the DNS records Vercel shows.
+
+Until that domain is attached, the pages ask search engines not to index the site. After it is, delete the robots meta tag in `src/layouts/Base.astro` and change `public/robots.txt` back to `Allow: /`.
 
 ## Moving the site to Rob later
 

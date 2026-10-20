@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { test } from "node:test";
 import { CatalogError, loadCatalog, parseCatalog } from "../src/data/catalog.ts";
 
@@ -290,8 +291,25 @@ function jpegSize(buf: Buffer): { width: number; height: number } {
     }
     offset += 2 + length;
   }
-  throw new Error("Could not read the hero JPEG size.");
+  throw new Error("Could not read the JPEG size.");
 }
+
+test("album covers stay small enough to load quickly", () => {
+  const catalog = loadCatalog();
+  const problems: string[] = [];
+  for (const album of catalog.music.albums) {
+    const buf = fs.readFileSync(album.cover);
+    const size = jpegSize(buf);
+    const edge = Math.max(size.width, size.height);
+    const kb = Math.ceil(buf.length / 1024);
+    if (edge > 900 || buf.length > 250 * 1024) {
+      problems.push(
+        `${album.cover} is ${size.width}×${size.height} and ${kb}KB. Resize it to about 800px.`,
+      );
+    }
+  }
+  assert.deepEqual(problems, []);
+});
 
 test("the home still is a matched pair", () => {
   const plate = fs.readFileSync("public/images/hero-plate.jpg");
@@ -312,5 +330,126 @@ test("the site source cannot send email", () => {
       /web3forms|formspree|api\.resend\.com|nodemailer/i.test(text)
     );
   });
+  assert.deepEqual(offenders, []);
+  const footer = fs.readFileSync("src/components/Footer.astro", "utf8");
+  assert.match(footer, /note\.textContent = "Nothing was sent\."/);
+  assert.equal(/note\.textContent = "[^"]*being built/.test(footer), false);
+});
+
+// Public images must not carry a location, an email, or a content-credentials manifest.
+function imageFiles(dir: string): string[] {
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...imageFiles(full));
+    else if (/\.(jpe?g|png)$/i.test(entry.name)) found.push(full);
+  }
+  return found;
+}
+
+function jpegMeta(buf: Buffer): Buffer[] {
+  const segments: Buffer[] = [];
+  if (buf[0] !== 0xff || buf[1] !== 0xd8) return segments;
+  let offset = 2;
+  while (offset + 4 < buf.length) {
+    if (buf[offset] !== 0xff) break;
+    const marker = buf[offset + 1] ?? 0;
+    if (marker === 0xda || marker === 0xd9) break;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      offset += 2;
+      continue;
+    }
+    const length = buf.readUInt16BE(offset + 2);
+    const end = offset + 2 + length;
+    if (end > buf.length) break;
+    if (marker >= 0xe0 && marker <= 0xef) segments.push(buf.subarray(offset + 4, end));
+    offset = end;
+  }
+  return segments;
+}
+
+function pngMeta(buf: Buffer): Buffer[] {
+  const chunks: Buffer[] = [];
+  if (buf.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") return chunks;
+  let offset = 8;
+  while (offset + 8 <= buf.length) {
+    const length = buf.readUInt32BE(offset);
+    const type = buf.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = buf.subarray(offset + 8, offset + 8 + length);
+    if (type === "eXIf" || type === "tEXt" || type === "iTXt") chunks.push(data);
+    if (type === "zTXt" && data.length > 2) {
+      const split = data.indexOf(0);
+      if (split >= 0) {
+        try {
+          chunks.push(zlib.inflateSync(data.subarray(split + 2)));
+        } catch {
+          chunks.push(data);
+        }
+      }
+    }
+    offset += 12 + length;
+    if (type === "IEND") break;
+  }
+  return chunks;
+}
+
+function tiffHasGps(tiff: Buffer): boolean {
+  if (tiff.length < 8) return false;
+  const little = tiff[0] === 0x49 && tiff[1] === 0x49;
+  const big = tiff[0] === 0x4d && tiff[1] === 0x4d;
+  if (!little && !big) return false;
+  const u16 = (offset: number) =>
+    little ? tiff.readUInt16LE(offset) : tiff.readUInt16BE(offset);
+  const u32 = (offset: number) =>
+    little ? tiff.readUInt32LE(offset) : tiff.readUInt32BE(offset);
+  const seen = new Set<number>();
+  const walk = (offset: number, depth: number): boolean => {
+    if (depth > 6 || offset < 0 || offset + 2 > tiff.length || seen.has(offset))
+      return false;
+    seen.add(offset);
+    const count = u16(offset);
+    for (let index = 0; index < count; index += 1) {
+      const entry = offset + 2 + index * 12;
+      if (entry + 12 > tiff.length) return false;
+      const tag = u16(entry);
+      if (tag === 0x8825) return true;
+      if (tag === 0x8769 && walk(u32(entry + 8), depth + 1)) return true;
+    }
+    const nextAt = offset + 2 + count * 12;
+    if (nextAt + 4 <= tiff.length) {
+      const next = u32(nextAt);
+      if (next !== 0 && walk(next, depth + 1)) return true;
+    }
+    return false;
+  };
+  try {
+    return walk(u32(4), 0);
+  } catch {
+    return false;
+  }
+}
+
+function metaHasGps(segment: Buffer): boolean {
+  const marker = Buffer.from("Exif\u0000\u0000");
+  const at = segment.indexOf(marker);
+  if (at >= 0) return tiffHasGps(segment.subarray(at + marker.length));
+  return tiffHasGps(segment);
+}
+
+test("public images carry no location, email, or content credentials", () => {
+  const email = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+  const offenders: string[] = [];
+  for (const file of imageFiles("public")) {
+    const buf = fs.readFileSync(file);
+    const meta = file.toLowerCase().endsWith(".png") ? pngMeta(buf) : jpegMeta(buf);
+    const reasons: string[] = [];
+    if (meta.some((segment) => segment.includes("c2pa") || segment.includes("C2PA"))) {
+      reasons.push("content credentials");
+    }
+    if (meta.some((segment) => email.test(segment.toString("latin1"))))
+      reasons.push("email");
+    if (meta.some((segment) => metaHasGps(segment))) reasons.push("gps");
+    if (reasons.length > 0) offenders.push(`${file} (${reasons.join(", ")})`);
+  }
   assert.deepEqual(offenders, []);
 });

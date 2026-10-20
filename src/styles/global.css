@@ -140,13 +140,17 @@ main {
 }
 
 .album-page {
-  width: min(60rem, calc(100% - 4rem));
+  width: min(68rem, calc(100% - 4rem));
   margin: 0 auto;
-  padding: 3.5rem 0 5rem;
+  min-height: calc(100dvh - var(--header));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2.5rem 0 4rem;
 }
 
 .album-page h1 {
-  margin: 0 0 1.5rem;
+  margin: 0 0 1.25rem;
   color: var(--taupe);
   font-family: var(--font-ui);
   font-size: 0.72rem;
@@ -158,22 +162,78 @@ main {
 
 .album {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
-  gap: clamp(1.5rem, 3vw, 2.75rem);
-  align-items: start;
+  grid-template-columns: minmax(0, 1.2fr) minmax(17.5rem, 0.8fr);
+  gap: clamp(1.25rem, 2.5vw, 2rem);
+  align-items: center;
 }
 
 .album-cover-link {
   display: block;
-  position: sticky;
-  top: calc(var(--header) + 1.25rem);
   min-width: 0;
 }
 
-.release-list {
-  display: grid;
-  gap: 1.15rem;
+.album-panel {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+}
+
+.album-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.7rem;
+}
+
+.album-step {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--taupe);
+  cursor: pointer;
+}
+
+.album-step:hover:not(:disabled) {
+  color: var(--bone);
+}
+
+.album-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.album-index {
+  margin: 0;
+  color: var(--taupe);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  font-variant-numeric: tabular-nums;
+}
+
+.album-index-current {
+  color: var(--bone);
+}
+
+.album-index-current::after {
+  content: " / ";
+  color: var(--taupe);
+}
+
+.album-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .album-cover {
@@ -182,163 +242,95 @@ main {
   height: auto;
   aspect-ratio: 1;
   object-fit: cover;
+  transition: opacity 320ms ease;
 }
 
-.player-card {
-  overflow: hidden;
-  padding: 1.15rem 1.15rem 0;
-  border: 1px solid rgba(236, 231, 220, 0.16);
-  border-radius: 1.25rem;
-  background: #141311;
+.album-cover.is-fading {
+  opacity: 0;
 }
 
-.player-card.is-playing {
-  border-color: rgba(236, 231, 220, 0.55);
-}
-
-.player-row {
-  display: grid;
-  grid-template-columns: 4.75rem minmax(0, 1fr);
-  gap: 0.95rem;
-  align-items: start;
-}
-
-.player-row-single {
-  grid-template-columns: 4.75rem;
-}
-
-.player-thumb {
-  width: 4.75rem;
-  height: 4.75rem;
-  object-fit: cover;
-  border-radius: 0.2rem;
-}
-
-.track-list {
-  list-style: none;
-  margin: 0;
-  padding: 0.1rem 0 0;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.track-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.track-list button,
-.track-list a {
-  color: var(--bone);
-  font: inherit;
-  font-size: 0.95rem;
-  line-height: 1.35;
-  text-decoration: none;
-}
-
-.track-list button {
-  flex: 1;
-  display: flex;
-  gap: 0.7rem;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-}
-
-.track-list .num {
-  flex: none;
-  width: 0.8rem;
-  color: var(--taupe);
-  font-variant-numeric: tabular-nums;
-}
-
-.track-list .name {
-  overflow: hidden;
-  color: #d9d3c7;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.track-list button[aria-current="true"] .num,
-.track-list button[aria-current="true"] .name {
-  color: var(--bone);
-}
-
-.track-list a.video {
-  margin-left: auto;
+.release-credit {
+  margin: 0 0 0.75rem;
   color: var(--taupe);
   font-size: 0.68rem;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.track-list button:hover .name,
-.track-list a.video:hover,
-.player-album a:hover {
-  color: var(--bone);
-}
-
-.player-album {
-  margin: 0.85rem 0 0.75rem;
-  color: var(--taupe);
-  font-size: 0.82rem;
   line-height: 1.3;
-}
-
-.player-album a {
-  color: var(--bone);
-  text-decoration: none;
-}
-
-.player-by {
-  color: var(--taupe);
-}
-
-.player,
-.play-release {
-  display: block;
-  width: calc(100% + 2.3rem);
-  height: 42px;
-  margin: 0 -1.15rem;
-  border: 0;
-  border-top: 1px solid rgba(236, 231, 220, 0.12);
-  background: transparent;
-}
-
-.play-release {
-  color: var(--bone);
-  font: inherit;
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
   text-transform: uppercase;
-  cursor: pointer;
 }
 
-.play-release[hidden] {
+.release-credit[hidden] {
   display: none;
 }
 
-.play-release:hover {
-  color: var(--bone);
-  background: rgba(236, 231, 220, 0.06);
+/* Bandcamp paints this gray itself. The frame matches it, so the corners
+   and any spare pixels read as one card. */
+.player-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(236, 231, 220, 0.16);
+  border-radius: 14px;
+  background: #303030;
+  line-height: 0;
 }
 
-.album-note {
-  grid-column: 1 / -1;
-  margin: 0;
+.player-wheel {
+  position: absolute;
+  inset: 0;
+}
+
+.player {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: #303030;
+  overscroll-behavior: contain;
+}
+
+.release-videos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.release-videos[hidden] {
+  display: none;
+}
+
+.release-videos a {
   color: var(--taupe);
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-decoration: none;
   text-transform: uppercase;
 }
 
-.album-note a {
-  color: var(--taupe);
-  text-decoration: none;
+.release-videos a span {
+  margin-right: 0.45rem;
+}
+
+.release-videos a:hover {
+  color: var(--bone);
+}
+
+.album-progress {
+  flex: none;
+  height: 1px;
+  margin: 0 0 1.15rem;
+  background: rgba(236, 231, 220, 0.16);
+}
+
+.album-progress-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--bone);
+  transform: scaleX(calc((var(--at, 0) + 1) / var(--count, 1)));
+  transform-origin: left center;
+  transition: transform 320ms ease;
 }
 
 .sheet {
@@ -415,7 +407,9 @@ main {
 
   .album-page {
     width: min(26rem, calc(100% - 2rem));
-    padding-top: 2.5rem;
+    min-height: 0;
+    justify-content: flex-start;
+    padding-top: 2rem;
   }
 
   .album-page h1 {
@@ -426,25 +420,22 @@ main {
   .album {
     grid-template-columns: 1fr;
     justify-items: center;
-    gap: 1.15rem;
+    gap: 1.25rem;
   }
 
   .album-cover-link {
-    position: static;
-    width: min(17rem, 72%);
+    width: min(18rem, 78%);
   }
 
-  .release-list {
+  .album-panel {
     width: 100%;
   }
+}
 
-  .album-cover {
-    width: 100%;
-    height: auto;
-  }
-
-  .player-card {
-    width: 100%;
+@media (prefers-reduced-motion: reduce) {
+  .album-cover,
+  .album-progress-bar {
+    transition: none;
   }
 }
 

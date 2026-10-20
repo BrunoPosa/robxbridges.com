@@ -31,7 +31,7 @@ Write the bio as normal paragraphs under About. A blank line starts a new paragr
 
 The films page plays the YouTube films in this order, one per screen. Scrolling moves to the next. Aryk starts at its start time. The Chinese Dictionary pieces come after them. Each one needs the Instagram post link and an indented `poster` line, a still in `public/films/`. The video stays on Instagram. A `credits` line stays hidden until the visitor opens Credits.
 
-The music page plays every release under Music, in the order written here. Each release is its own heading. Under it, give the Bandcamp link, the player number, and the cover file. A single is just those three lines. An album lists its tracks underneath, in order. A track with a video uses a YouTube link, then an indented `player` line with that track’s Bandcamp number. A track without a video is the title alone, then the same `player` line. `Credit` replaces the name on that one card.
+The music page plays every release under Music, in the order written here. Each release is its own heading. Under it, give the Bandcamp link, the player number, and the cover file. A single is just those three lines. An album lists its tracks underneath, in order. A track with a video uses a YouTube link, then an indented `player` line with that track’s Bandcamp number. A track without a video is the title alone, then the same `player` line. `Credit` shows above the player on that release. Cover files should be about 800 pixels on the long side.
 
 Icons use the Social list. A blank YouTube or Instagram line hides that icon until you paste a profile link.
 
@@ -46,12 +46,12 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 - YouTube:
 - Instagram:
 - Bandcamp: https://robbridgesmusic.bandcamp.com/
-- Spotify: https://open.spotify.com/artist/2kS1RhFIh7qOvtp0PNv1uh?si=TQ1-1aLrQA6I8IX97B2HUA
+- Spotify: https://open.spotify.com/artist/2kS1RhFIh7qOvtp0PNv1uh
 
 ## Music
 
 - Bandcamp: https://robbridgesmusic.bandcamp.com/
-- Spotify: https://open.spotify.com/artist/2kS1RhFIh7qOvtp0PNv1uh?si=TQ1-1aLrQA6I8IX97B2HUA
+- Spotify: https://open.spotify.com/artist/2kS1RhFIh7qOvtp0PNv1uh
 
 ### LUNA EP
 

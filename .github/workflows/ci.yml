@@ -55,6 +55,8 @@ jobs:
             exit 0
           fi
           npm install --global vercel@64.5.0
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          # The CLI reads VERCEL_TOKEN from the environment. Leaving it off the
+          # command line keeps it out of the process list.
+          vercel pull --yes --environment=production
+          vercel build --prod
+          vercel deploy --prebuilt --prod

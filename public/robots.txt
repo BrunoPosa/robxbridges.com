@@ -1,2 +1,4 @@
+# Search engines should ignore the site until robxbridges.com points here.
+# Then change Disallow back to Allow: /
 User-agent: *
-Allow: /
+Disallow: /

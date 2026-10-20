@@ -1,29 +1,74 @@
 ---
-// Releases come from references/links.md. One heading there is one card here.
-// A release with two or more tracks lists them. A single does not.
-// The large cover is the release that is playing. Bandcamp is only the play bar.
+// Releases come from references/links.md. One heading there is one album here.
+// The cover on the left is the release in view. The card on the right is
+// Bandcamp's own player, so the first click starts the music and the timeline
+// stays visible. The wheel, over this block, moves to the next release.
 import Base from "../layouts/Base.astro";
 import { loadCatalog, publicSrc, type Album } from "../data/catalog";
 
+type ReleaseData = {
+  title: string;
+  url: string;
+  cover: string;
+  src: string;
+  height: number;
+  credit?: string;
+  videos: { title: string; url: string }[];
+};
+
 const catalog = loadCatalog();
-const { music } = catalog;
-const albums = music.albums;
-const playing = albums[0];
-const playerTail =
-  "/size=small/bgcol=080706/linkcol=ece7dc/tracklist=false/artwork=none/transparent=true/";
+const albums = catalog.music.albums;
+
+// Bandcamp's large player uses its own dark gray. A custom dark bgcol is
+// ignored, so the card around it uses the same gray.
+const playerBg = "303030";
 
 function playerSrc(album: Album): string {
   const id =
     album.kind === "track" ? `track=${album.playerId}` : `album=${album.playerId}`;
-  return `https://bandcamp.com/EmbeddedPlayer/${id}${playerTail}`;
+  const tracklist = album.kind === "album" && album.tracks.length > 1;
+  return `https://bandcamp.com/EmbeddedPlayer/${id}/size=large/bgcol=${playerBg}/linkcol=ece7dc/tracklist=${tracklist}/artwork=small/transparent=true/`;
 }
+
+// The transport is about 120px and each track row is about 32px. The extra
+// pixels keep the last duration inside the rounded card, so the frame itself
+// does not scroll.
+function playerHeight(album: Album): number {
+  if (album.kind !== "album" || album.tracks.length < 2) return 120;
+  return 136 + album.tracks.length * 38;
+}
+
+const releases: ReleaseData[] = albums.map((album) => {
+  const videos = album.tracks.flatMap((track) =>
+    track.url ? [{ title: track.title, url: track.url }] : [],
+  );
+  return {
+    title: album.title,
+    url: album.url,
+    cover: publicSrc(album.cover),
+    src: playerSrc(album),
+    height: playerHeight(album),
+    ...(album.credit ? { credit: album.credit } : {}),
+    videos,
+  };
+});
+
+const releaseJson = JSON.stringify(releases).replace(/</g, "\\u003c");
+const playing = releases[0];
 ---
 
 <Base title="Music">
   <article class="album-page">
     <h1>Music</h1>
     {playing && (
-      <div class="album">
+      <div
+        class="album"
+        style={`--count:${releases.length};--at:0`}
+        tabindex="0"
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Albums"
+      >
         <a
           class="album-cover-link"
           href={playing.url}
@@ -32,152 +77,341 @@ function playerSrc(album: Album): string {
         >
           <img
             class="album-cover"
-            src={publicSrc(playing.cover)}
+            src={playing.cover}
             alt={`${playing.title} cover`}
-            width="1200"
-            height="1200"
+            width="800"
+            height="800"
+            decoding="async"
+            fetchpriority="high"
           />
         </a>
-        <div class="release-list" data-player-tail={playerTail}>
-          {albums.map((album, albumIndex) => {
-            const active = albumIndex === 0;
-            return (
-              <div
-                class:list={["player-card", { "is-playing": active }]}
-                data-kind={album.kind}
-                data-player={album.playerId}
-                data-cover={publicSrc(album.cover)}
-                data-url={album.url}
-                data-title={album.title}
-              >
-                <div
-                  class:list={[
-                    "player-row",
-                    { "player-row-single": album.tracks.length < 2 },
-                  ]}
-                >
-                  <img
-                    class="player-thumb"
-                    src={publicSrc(album.cover)}
-                    alt=""
-                    width="120"
-                    height="120"
-                    loading={albumIndex === 0 ? "eager" : "lazy"}
-                  />
-                  {album.tracks.length > 1 && (
-                    <ol class="track-list">
-                      {album.tracks.map((track, index) => (
-                        <li>
-                          <button type="button" data-track={track.playerId}>
-                            <span class="num">{index + 1}</span>
-                            <span class="name">{track.title}</span>
-                          </button>
-                          {track.url && (
-                            <a
-                              class="video"
-                              href={track.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Video
-                            </a>
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-                <p class="player-album">
-                  <a href={album.url} target="_blank" rel="noopener noreferrer">
-                    {album.title}
-                  </a>
-                  <span class="player-by"> · {album.credit ?? catalog.site.name}</span>
-                </p>
-                <button type="button" class="play-release" hidden={active}>
-                  Play
-                </button>
-                {active && (
-                  <iframe
-                    class="player"
-                    title={`${album.title} on Bandcamp`}
-                    src={playerSrc(album)}
-                  />
-                )}
-              </div>
-            );
-          })}
+        <div class="album-panel">
+          <div class="album-nav">
+            <button
+              type="button"
+              class="album-step"
+              data-step="-1"
+              aria-label="Previous release"
+              disabled
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M10.5 3.5 5.5 8l5 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1"
+                />
+              </svg>
+            </button>
+            <p class="album-index">
+              <span class="album-index-current">01</span>
+              <span class="album-index-total">
+                {String(releases.length).padStart(2, "0")}
+              </span>
+            </p>
+            <button
+              type="button"
+              class="album-step"
+              data-step="1"
+              aria-label="Next release"
+              disabled={releases.length < 2}
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M5.5 3.5 10.5 8l-5 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1"
+                />
+              </svg>
+            </button>
+          </div>
+          <div class="album-progress" aria-hidden="true">
+            <span class="album-progress-bar" />
+          </div>
+          <p class="release-credit" hidden={!playing.credit}>
+            {playing.credit}
+          </p>
+          <div class="player-frame">
+            <iframe
+              class="player"
+              title={`${playing.title} on Bandcamp`}
+              src={playing.src}
+              height={playing.height}
+              style={`height:${playing.height}px`}
+              allow="autoplay; encrypted-media"
+            />
+          </div>
+          <ul class="release-videos" hidden={playing.videos.length === 0}>
+            {playing.videos.map((video) => (
+              <li>
+                <a href={video.url} target="_blank" rel="noopener noreferrer">
+                  <span>Video</span>
+                  {video.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p class="album-live" aria-live="polite" />
         </div>
       </div>
     )}
   </article>
+  <script type="application/json" id="release-data" set:html={releaseJson} />
 </Base>
 
 <script>
+  type ReleaseData = {
+    title: string;
+    url: string;
+    cover: string;
+    src: string;
+    height: number;
+    credit?: string;
+    videos: { title: string; url: string }[];
+  };
+
+  const album = document.querySelector(".album");
   const coverLink = document.querySelector(".album-cover-link");
   const coverImg = document.querySelector(".album-cover");
-  const playerTail =
-    document.querySelector(".release-list")?.getAttribute("data-player-tail") ?? "";
+  const frame = document.querySelector(".player");
+  const indexLabel = document.querySelector(".album-index-current");
+  const credit = document.querySelector(".release-credit");
+  const videos = document.querySelector(".release-videos");
+  const live = document.querySelector(".album-live");
+  const prevButton = document.querySelector('.album-step[data-step="-1"]');
+  const nextButton = document.querySelector('.album-step[data-step="1"]');
+  const dataEl = document.getElementById("release-data");
+  const releases: ReleaseData[] = dataEl?.textContent
+    ? (JSON.parse(dataEl.textContent) as ReleaseData[])
+    : [];
 
-  function embedSrc(kind: string, playerId: string, trackId?: string): string {
-    const head = "https://bandcamp.com/EmbeddedPlayer/";
-    if (kind === "track") return `${head}track=${playerId}${playerTail}`;
-    const track = trackId ? `/track=${trackId}` : "";
-    return `${head}album=${playerId}${track}${playerTail}`;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const ready = new Set<string>();
+  let index = 0;
+  let announced = false;
+  let fadeToken = 0;
+  let carry = 0;
+  let locked = false;
+  let carryTimer = 0;
+
+  function remember(src: string): void {
+    if (src) ready.add(src);
   }
 
-  function play(card: HTMLElement, trackId?: string): void {
+  function preload(at: number): void {
+    const src = releases[at]?.cover;
+    if (!src || ready.has(src)) return;
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => remember(src);
+    img.src = src;
+  }
+
+  function setCover(src: string, alt: string, url: string): void {
     if (!(coverLink instanceof HTMLAnchorElement)) return;
     if (!(coverImg instanceof HTMLImageElement)) return;
-    const kind = card.dataset.kind || "album";
-    const playerId = card.dataset.player || "";
-    const title = card.dataset.title || "";
-    const url = card.dataset.url || "";
-    const cover = card.dataset.cover || "";
-    if (!playerId || !cover) return;
-
-    for (const other of document.querySelectorAll(".player-card")) {
-      other.classList.remove("is-playing");
-      const frame = other.querySelector("iframe.player");
-      if (frame) frame.remove();
-      const button = other.querySelector(".play-release");
-      if (button instanceof HTMLButtonElement) button.hidden = false;
-    }
-    for (const item of document.querySelectorAll(".track-list button")) {
-      item.removeAttribute("aria-current");
-    }
-
-    card.classList.add("is-playing");
-    const playButton = card.querySelector(".play-release");
-    if (playButton instanceof HTMLButtonElement) playButton.hidden = true;
-    const frame = document.createElement("iframe");
-    frame.className = "player";
-    frame.title = `${title} on Bandcamp`;
-    frame.src = embedSrc(kind, playerId, trackId);
-    card.append(frame);
-
-    coverImg.src = cover;
-    coverImg.alt = `${title} cover`;
     coverLink.href = url;
+    coverImg.alt = alt;
+    if (coverImg.getAttribute("src") === src) return;
 
-    if (!trackId) return;
-    const current = card.querySelector(
-      `.track-list button[data-track="${CSS.escape(trackId)}"]`,
-    );
-    if (current instanceof HTMLButtonElement)
-      current.setAttribute("aria-current", "true");
+    const token = ++fadeToken;
+    const showImage = () => {
+      if (token !== fadeToken) return;
+      if (reduceMotion) {
+        coverImg.style.transition = "";
+        coverImg.classList.remove("is-fading");
+        coverImg.src = src;
+        return;
+      }
+      coverImg.style.transition = "none";
+      coverImg.classList.add("is-fading");
+      coverImg.src = src;
+      void coverImg.offsetWidth;
+      coverImg.style.transition = "";
+      coverImg.classList.remove("is-fading");
+    };
+
+    if (ready.has(src)) {
+      showImage();
+      return;
+    }
+    const incoming = new Image();
+    incoming.decoding = "async";
+    incoming.onload = () => {
+      remember(src);
+      showImage();
+    };
+    incoming.onerror = () => {
+      if (token !== fadeToken) return;
+      coverImg.style.transition = "";
+      coverImg.classList.remove("is-fading");
+      coverImg.src = src;
+    };
+    incoming.src = src;
   }
 
-  for (const button of document.querySelectorAll(".play-release")) {
-    button.addEventListener("click", () => {
-      const card = button.closest(".player-card");
-      if (card instanceof HTMLElement) play(card);
-    });
+  function showVideos(items: ReleaseData["videos"]): void {
+    if (!(videos instanceof HTMLElement)) return;
+    videos.replaceChildren();
+    videos.hidden = items.length === 0;
+    for (const video of items) {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = video.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      const tag = document.createElement("span");
+      tag.textContent = "Video";
+      link.append(tag, video.title);
+      item.append(link);
+      videos.append(item);
+    }
   }
-  for (const button of document.querySelectorAll(".track-list button[data-track]")) {
-    button.addEventListener("click", () => {
-      const card = button.closest(".player-card");
-      const trackId = button.getAttribute("data-track");
-      if (card instanceof HTMLElement && trackId) play(card, trackId);
+
+  function show(next: number): void {
+    if (next < 0 || next >= releases.length || next === index) return;
+    index = next;
+    const release = releases[next];
+    if (!release) return;
+
+    setCover(release.cover, `${release.title} cover`, release.url);
+    if (frame instanceof HTMLIFrameElement && frame.src !== release.src) {
+      frame.src = release.src;
+      frame.title = `${release.title} on Bandcamp`;
+      frame.style.height = `${release.height}px`;
+      frame.height = String(release.height);
+    }
+    if (album instanceof HTMLElement) album.style.setProperty("--at", String(next));
+    if (indexLabel) indexLabel.textContent = String(next + 1).padStart(2, "0");
+    if (prevButton instanceof HTMLButtonElement) prevButton.disabled = next === 0;
+    if (nextButton instanceof HTMLButtonElement) {
+      nextButton.disabled = next === releases.length - 1;
+    }
+    if (credit instanceof HTMLElement) {
+      credit.textContent = release.credit ?? "";
+      credit.hidden = !release.credit;
+    }
+    showVideos(release.videos);
+    preload(next - 1);
+    preload(next + 1);
+    if (live && announced) {
+      live.textContent = `Album ${next + 1} of ${releases.length}, ${release.title}`;
+    }
+    announced = true;
+  }
+
+  // One flick moves one release. At the first and last release the page
+  // scrolls again, so About and contact stay reachable.
+  function onWheel(event: WheelEvent): void {
+    if (!finePointer || event.ctrlKey) return;
+    const vertical =
+      event.deltaMode === 1
+        ? event.deltaY * 16
+        : event.deltaMode === 2
+          ? event.deltaY * 120
+          : event.deltaY;
+    if (Math.abs(event.deltaX) > Math.abs(vertical)) return;
+    const direction = vertical > 0 ? 1 : -1;
+    if (index + direction < 0 || index + direction >= releases.length) return;
+    event.preventDefault();
+    window.clearTimeout(carryTimer);
+    carryTimer = window.setTimeout(() => {
+      carry = 0;
+    }, 180);
+    if (locked) return;
+    carry += vertical;
+    if (Math.abs(carry) < 48) return;
+    carry = 0;
+    locked = true;
+    show(index + direction);
+    window.setTimeout(() => {
+      locked = false;
+    }, 420);
+  }
+
+  if (album instanceof HTMLElement && releases.length > 0) {
+    if (coverImg instanceof HTMLImageElement) {
+      const initial = coverImg.getAttribute("src") || "";
+      if (coverImg.complete && coverImg.naturalWidth > 0) remember(initial);
+      else coverImg.addEventListener("load", () => remember(initial), { once: true });
+    }
+    preload(1);
+
+    album.addEventListener("wheel", onWheel, { passive: false });
+    // The Bandcamp frame keeps wheel events to itself. A clear layer over it
+    // lets a resting pointer change the release. Moving the pointer lifts the
+    // layer for a moment so a click still reaches play, the timeline, and a track.
+    if (finePointer && frame instanceof HTMLIFrameElement && frame.parentElement) {
+      const catcher = document.createElement("div");
+      catcher.className = "player-wheel";
+      catcher.setAttribute("aria-hidden", "true");
+      frame.parentElement.append(catcher);
+      catcher.addEventListener(
+        "wheel",
+        (event) => {
+          onWheel(event);
+          event.stopPropagation();
+        },
+        { passive: false },
+      );
+      let restore = 0;
+      const stepAside = () => {
+        catcher.style.pointerEvents = "none";
+        window.clearTimeout(restore);
+        restore = window.setTimeout(() => {
+          catcher.style.pointerEvents = "";
+        }, 1400);
+      };
+      catcher.addEventListener("pointermove", stepAside);
+      catcher.addEventListener("pointerrawupdate", stepAside);
+      frame.parentElement.addEventListener("pointerleave", () => {
+        window.clearTimeout(restore);
+        catcher.style.pointerEvents = "";
+      });
+    }
+
+    for (const button of album.querySelectorAll<HTMLButtonElement>(".album-step")) {
+      button.addEventListener("click", () => {
+        const step = Number(button.dataset.step);
+        if (!Number.isFinite(step)) return;
+        show(index + step);
+      });
+    }
+
+    album.addEventListener("keydown", (event) => {
+      if (event.altKey || event.metaKey || event.ctrlKey) return;
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      show(index + (event.key === "ArrowRight" ? 1 : -1));
     });
+
+    // A sideways touch on the cover changes the release. A tap still opens it.
+    if (coverLink instanceof HTMLElement) {
+      let swipe: { x: number; y: number; pointerId: number } | null = null;
+      let suppressClick = false;
+      coverLink.addEventListener("pointerdown", (event) => {
+        if (event.pointerType !== "touch") return;
+        swipe = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+      });
+      coverLink.addEventListener("pointerup", (event) => {
+        if (!swipe || swipe.pointerId !== event.pointerId) return;
+        const dx = event.clientX - swipe.x;
+        const dy = event.clientY - swipe.y;
+        swipe = null;
+        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+        suppressClick = true;
+        show(index + (dx < 0 ? 1 : -1));
+      });
+      coverLink.addEventListener("pointercancel", () => {
+        swipe = null;
+      });
+      coverLink.addEventListener("click", (event) => {
+        if (!suppressClick) return;
+        event.preventDefault();
+        suppressClick = false;
+      });
+    }
   }
 </script>
