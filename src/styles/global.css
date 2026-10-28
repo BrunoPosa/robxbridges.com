@@ -449,9 +449,11 @@ main {
 }
 
 /* Films: one piece per screen. The header stays put, so each screen is the
-   space under it. About and contact follow the last piece. */
+   space under it. About and contact follow the last piece.
+   The films script moves one piece at a time. Mandatory snap on these sticky
+   slides traps a backward scroll on the current piece, so it stays off. */
 html:has(.reel) {
-  scroll-snap-type: y mandatory;
+  scroll-snap-type: none;
   scroll-padding-top: var(--header-live, var(--header));
 }
 
@@ -508,6 +510,24 @@ html:has(.reel) .site-footer {
   flex-direction: column;
   gap: 0.55rem;
   transform: translateY(-50%);
+  opacity: 1;
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s ease;
+}
+
+/* Hidden while a film is playing, and while About is on screen.
+   A keyboard user can still tab to the marks; focus brings them back. */
+.film-rail.is-quiet {
+  opacity: 0;
+  transform: translateY(-50%) translateX(-0.65rem);
+  pointer-events: none;
+}
+
+.film-rail.is-quiet:focus-within {
+  opacity: 1;
+  transform: translateY(-50%);
+  pointer-events: auto;
 }
 
 .film-rail-item {
@@ -588,6 +608,7 @@ html:has(.reel) .site-footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .film-rail,
   .film-rail-line,
   .film-rail-name {
     transition: none;
@@ -737,12 +758,6 @@ html:has(.reel) .site-footer {
 
 .film-slide.is-playing .film-scroll {
   pointer-events: auto;
-}
-
-@media (pointer: coarse) {
-  .film-scroll {
-    display: none;
-  }
 }
 
 .film-copy .film-kicker {

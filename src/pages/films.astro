@@ -166,11 +166,15 @@ function indexLabel(index: number): string {
 
 <script>
   // The film in front plays. The one it covers stays paused on its last frame
-  // until you move on. Aryk starts on its own, muted, because a browser will
-  // not start sound by itself. Sound keeps that choice for the next YouTube
-  // film. YouTube's own captions and sound stay clickable. A Chinese Dictionary
-  // piece shows its still, and loads one Instagram embed only while it is the
-  // piece on screen. prefers-reduced-motion waits for Play.
+  // until you move on. Scrolling down brings the next film up over this one.
+  // Scrolling up lets this one slide down and uncovers the previous film.
+  // One gesture moves one piece, then About. Aryk starts on its own, muted,
+  // because a browser will not start sound by itself. Sound keeps that choice
+  // for the next YouTube film. YouTube's own captions and sound stay clickable.
+  // A Chinese Dictionary piece shows its still, and loads one Instagram embed
+  // only while it is the piece on screen. prefers-reduced-motion waits for Play.
+  // The marks on the left fade out once a piece is playing, and again over About.
+  // Moving the pointer, or touching the screen, brings them back.
 
   interface YouTubePlayer {
     destroy: () => void;
@@ -199,13 +203,13 @@ function indexLabel(index: number): string {
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function syncHeader(): void {
+  function headerHeight(): number {
     const header = document.querySelector(".site-header");
-    if (!(header instanceof HTMLElement)) return;
-    document.documentElement.style.setProperty(
-      "--header-live",
-      `${header.offsetHeight}px`,
-    );
+    return header instanceof HTMLElement ? header.offsetHeight : 0;
+  }
+
+  function syncHeader(): void {
+    document.documentElement.style.setProperty("--header-live", `${headerHeight()}px`);
   }
 
   syncHeader();
@@ -221,6 +225,16 @@ function indexLabel(index: number): string {
   let pending = 0;
   let apiReady: Promise<void> | null = null;
   let topTimer = 0;
+  // Which stop is current. The last stop is About, after the films.
+  let dock = 0;
+  let travel = false;
+  let trip = 0;
+  // 1 means the next film is arriving. -1 means the previous one is returning.
+  let scrollDir = 1;
+  let pastFilms = false;
+  let railAwake = true;
+  let railTimer = 0;
+  let dragging = false;
 
   function slideList(): HTMLElement[] {
     return [...document.querySelectorAll(".film-slide")].filter(
@@ -261,6 +275,17 @@ function indexLabel(index: number): string {
   function showPlay(slide: HTMLElement): void {
     const play = slide.querySelector(".film-play");
     if (play instanceof HTMLButtonElement) play.hidden = false;
+  }
+
+  function showPlaying(slide: HTMLElement): void {
+    const started = !slide.classList.contains("is-playing");
+    slide.classList.add("is-playing");
+    if (started && slide === active) restRail();
+  }
+
+  function hidePlaying(slide: HTMLElement): void {
+    slide.classList.remove("is-playing");
+    if (slide === active) syncRail();
   }
 
   function closeCredits(scope: ParentNode = document): void {
@@ -326,7 +351,7 @@ function indexLabel(index: number): string {
     const embed = slide.querySelector(".film-embed-frame");
     if (embed) embed.replaceChildren();
     else slide.querySelector(".film-player")?.replaceChildren();
-    slide.classList.remove("is-playing");
+    hidePlaying(slide);
     showPlay(slide);
     closeCredits(slide);
   }
@@ -392,7 +417,7 @@ function indexLabel(index: number): string {
     fit(frame, slide.dataset.title || "Film");
     holder.replaceChildren(frame);
     modes.set(slide, "plain");
-    slide.classList.add("is-playing");
+    showPlaying(slide);
   }
 
   function mount(slide: HTMLElement): void {
@@ -445,7 +470,7 @@ function indexLabel(index: number): string {
               if (soundOn) event.target.unMute();
               else event.target.mute();
               event.target.playVideo();
-              slide.classList.add("is-playing");
+              showPlaying(slide);
             },
           },
         });
@@ -473,7 +498,7 @@ function indexLabel(index: number): string {
     frame.addEventListener("load", () => {
       if (mine !== tokens.get(slide) || active !== slide) return;
       modes.set(slide, "instagram");
-      slide.classList.add("is-playing");
+      showPlaying(slide);
     });
     holder.replaceChildren(frame);
   }
@@ -484,7 +509,7 @@ function indexLabel(index: number): string {
       if (soundOn) existing.unMute();
       else existing.mute();
       existing.playVideo();
-      slide.classList.add("is-playing");
+      showPlaying(slide);
       const play = slide.querySelector(".film-play");
       if (play instanceof HTMLButtonElement) play.hidden = true;
       return;
@@ -561,11 +586,24 @@ function indexLabel(index: number): string {
         }
       }
     } else {
-      // The film sliding up is later in the page. Take it once it covers
-      // enough of the screen, even though the paused one is still underneath.
+      // A stuck film sits under the header. The next one counts once it
+      // covers enough of the screen on the way up. On the way back, the film
+      // that has started to leave is no longer the one in front.
+      const line = headerHeight() + 16;
+      let stuck: HTMLElement | null = null;
+      let approaching: HTMLElement | null = null;
       for (const slide of slides) {
-        if ((ratios.get(slide) ?? 0) >= 0.42) best = slide;
+        const rect = slide.getBoundingClientRect();
+        if (rect.top <= line) {
+          stuck = slide;
+          continue;
+        }
+        if (approaching || rect.height <= 0) continue;
+        const visible =
+          Math.min(window.innerHeight, rect.bottom) - Math.max(0, rect.top);
+        if (visible / rect.height >= 0.42) approaching = slide;
       }
+      best = scrollDir < 0 ? stuck : (approaching ?? stuck);
     }
     if (!best || best === active) return;
     activate(best, !reduced);
@@ -600,44 +638,143 @@ function indexLabel(index: number): string {
     });
   }
 
+  function maxScroll(): number {
+    return Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  }
+
+  function slidePitch(): number {
+    return slideList()[0]?.offsetHeight || window.innerHeight;
+  }
+
+  // A stuck film's offsetTop moves to where it is stuck, so it cannot be used
+  // to find the way back. Every piece is one screen tall, and About follows them.
+  function stopTop(index: number): number {
+    const count = slideList().length;
+    const stop = Math.max(0, Math.min(count, index));
+    return stop * slidePitch();
+  }
+
+  // About is tall enough to read past its first screen. Leave that scroll alone.
+  function footerRoom(direction: number): boolean {
+    const footerTop = stopTop(slideList().length);
+    const y = window.scrollY;
+    if (y < footerTop - 2) return false;
+    if (direction > 0) return y < maxScroll() - 2;
+    return y > footerTop + 2;
+  }
+
   function scrollFilmsTo(top: number): void {
     const root = document.documentElement;
+    const mine = ++trip;
+    travel = true;
     closeCredits();
     root.style.scrollSnapType = "none";
     let restored = false;
+    let watch = () => {};
     const restore = () => {
-      if (restored) return;
+      if (restored || mine !== trip) return;
       restored = true;
       window.clearTimeout(topTimer);
+      window.removeEventListener("scroll", watch);
       root.style.scrollSnapType = "";
+      travel = false;
+      updatePastFilms();
     };
-    const destination = Math.max(0, top);
+    const destination = Math.max(0, Math.min(maxScroll(), top));
+    watch = () => {
+      if (mine !== trip) {
+        window.removeEventListener("scroll", watch);
+        return;
+      }
+      if (Math.abs(window.scrollY - destination) <= 3) restore();
+    };
+    window.addEventListener("scroll", watch, { passive: true });
     window.scrollTo({ top: destination, behavior: reduced ? "auto" : "smooth" });
-    if (reduced || Math.abs(window.scrollY - destination) < 2) {
-      restore();
-      return;
-    }
+    watch();
+    if (restored) return;
     window.addEventListener("scrollend", restore, { once: true });
     window.clearTimeout(topTimer);
-    topTimer = window.setTimeout(restore, 2000);
+    topTimer = window.setTimeout(restore, 1200);
+  }
+
+  function goDock(index: number): void {
+    const last = slideList().length;
+    const next = Math.max(0, Math.min(last, index));
+    if (next !== dock) scrollDir = next < dock ? -1 : 1;
+    dock = next;
+    scrollFilmsTo(stopTop(next));
   }
 
   function goTop(): void {
-    scrollFilmsTo(0);
+    goDock(0);
   }
 
-  function goToSlide(slide: HTMLElement): void {
-    const header = document.querySelector(".site-header");
-    const headerHeight = header instanceof HTMLElement ? header.offsetHeight : 0;
-    // offsetTop stays at the film's place in the page. A stuck film's
-    // getBoundingClientRect would point at the header instead.
-    let top = 0;
-    let node: HTMLElement | null = slide;
-    while (node) {
-      top += node.offsetTop;
-      node = node.offsetParent instanceof HTMLElement ? node.offsetParent : null;
+  function syncDock(): void {
+    const y = window.scrollY;
+    const last = slideList().length;
+    if (y > stopTop(last) + 24) {
+      dock = last;
+      return;
     }
-    scrollFilmsTo(top - headerHeight);
+    let best = 0;
+    let bestDist = Infinity;
+    for (let index = 0; index <= last; index += 1) {
+      const dist = Math.abs(stopTop(index) - y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = index;
+      }
+    }
+    dock = best;
+  }
+
+  function updatePastFilms(): void {
+    const footer = document.querySelector(".site-footer");
+    if (!(footer instanceof HTMLElement)) return;
+    const next = footer.getBoundingClientRect().top < window.innerHeight * 0.62;
+    if (next === pastFilms) return;
+    const returned = pastFilms && !next;
+    pastFilms = next;
+    const marks = document.querySelector(".film-rail");
+    if (pastFilms && marks instanceof HTMLElement) marks.classList.remove("is-open");
+    if (returned) wakeRail();
+    else syncRail();
+  }
+
+  function syncRail(): void {
+    const marks = document.querySelector(".film-rail");
+    if (!(marks instanceof HTMLElement)) return;
+    const engaged =
+      marks.matches(":hover") ||
+      marks.matches(":focus-within") ||
+      marks.classList.contains("is-open");
+    const playing = Boolean(active?.classList.contains("is-playing"));
+    const hide = pastFilms || (playing && !engaged && !railAwake);
+    marks.classList.toggle("is-quiet", hide);
+    // About is not a film. Keep the marks out of the tab order there.
+    if (pastFilms) marks.setAttribute("inert", "");
+    else marks.removeAttribute("inert");
+  }
+
+  function wakeRail(): void {
+    railAwake = true;
+    syncRail();
+    window.clearTimeout(railTimer);
+    railTimer = window.setTimeout(() => {
+      railAwake = false;
+      syncRail();
+    }, 2400);
+  }
+
+  // A short rest after play starts, so the current mark can be seen, then it leaves.
+  function restRail(): void {
+    railAwake = true;
+    syncRail();
+    window.clearTimeout(railTimer);
+    railTimer = window.setTimeout(() => {
+      railAwake = false;
+      syncRail();
+    }, 1200);
   }
 
   const observer = new IntersectionObserver(
@@ -690,10 +827,34 @@ function indexLabel(index: number): string {
     });
   }
 
+  function creditsOpen(): boolean {
+    return Boolean(document.querySelector(".film-credits-overlay:not([hidden])"));
+  }
+
   document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    const open = document.querySelector(".film-credits-overlay:not([hidden])");
-    if (open instanceof HTMLElement) shutCredits(open, true);
+    if (event.key === "Escape") {
+      const open = document.querySelector(".film-credits-overlay:not([hidden])");
+      if (open instanceof HTMLElement) shutCredits(open, true);
+      return;
+    }
+    if (event.altKey || event.metaKey || event.ctrlKey || creditsOpen()) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest("input, textarea, select")
+    ) {
+      return;
+    }
+    const direction =
+      event.key === "ArrowDown" || event.key === "PageDown"
+        ? 1
+        : event.key === "ArrowUp" || event.key === "PageUp"
+          ? -1
+          : 0;
+    if (!direction || footerRoom(direction)) return;
+    event.preventDefault();
+    if (!pastFilms) wakeRail();
+    if (travel && direction === scrollDir) return;
+    goDock(dock + direction);
   });
 
   const top = document.querySelector(".film-top");
@@ -717,18 +878,62 @@ function indexLabel(index: number): string {
         return;
       }
       if (rail instanceof HTMLElement) rail.classList.remove("is-open");
-      goToSlide(slide);
+      goDock(index);
       button.blur();
     });
   });
 
+  let railPress: { x: number; y: number } | null = null;
+
   document.addEventListener("pointerdown", (event) => {
-    if (!(rail instanceof HTMLElement) || !rail.classList.contains("is-open")) return;
-    if (event.target instanceof Node && rail.contains(event.target)) return;
-    rail.classList.remove("is-open");
+    if (!(rail instanceof HTMLElement)) return;
+    const quiet = rail.classList.contains("is-quiet");
+    if (!pastFilms) wakeRail();
+    if (rail.classList.contains("is-open")) {
+      if (event.target instanceof Node && rail.contains(event.target)) return;
+      rail.classList.remove("is-open");
+      return;
+    }
+    if (finePointer.matches || !quiet || pastFilms) return;
+    const rect = rail.getBoundingClientRect();
+    const pad = 28;
+    const onRail =
+      event.clientX >= rect.left - pad &&
+      event.clientX <= rect.right + pad &&
+      event.clientY >= rect.top - pad &&
+      event.clientY <= rect.bottom + pad;
+    if (!onRail) return;
+    railPress = { x: event.clientX, y: event.clientY };
   });
 
-  // A resting pointer over the middle of the picture scrolls to the next film.
+  document.addEventListener("pointerup", (event) => {
+    if (!railPress || !(rail instanceof HTMLElement)) {
+      railPress = null;
+      return;
+    }
+    const dx = event.clientX - railPress.x;
+    const dy = event.clientY - railPress.y;
+    railPress = null;
+    if (dx * dx + dy * dy > 64) return;
+    rail.classList.add("is-open");
+    wakeRail();
+    // The marks were not receiving this tap. Don't let it hit Play underneath.
+    document.addEventListener(
+      "click",
+      (click) => {
+        click.preventDefault();
+        click.stopPropagation();
+      },
+      { capture: true, once: true },
+    );
+  });
+
+  document.addEventListener("pointercancel", () => {
+    railPress = null;
+  });
+
+  // A resting pointer over the middle of the picture scrolls one film.
+  // The page wheel and the drag below move to the next or the previous.
   // Moving that pointer steps the layer aside so YouTube can take the click.
   // Captions and sound sit outside the layer, so they stay clickable either way.
   // Once the pointer is on YouTube's own bar, the layer stays aside until it leaves.
@@ -786,4 +991,215 @@ function indexLabel(index: number): string {
       layer.style.pointerEvents = "";
     });
   }
+
+  // Ignore a mousemove that did not move. Scrolling can fire one when the
+  // picture under a still cursor changes, and that would bring the marks back
+  // the moment they fade.
+  let pointerAt = { x: -1, y: -1 };
+  document.addEventListener("mousemove", (event) => {
+    const dx = event.clientX - pointerAt.x;
+    const dy = event.clientY - pointerAt.y;
+    pointerAt = { x: event.clientX, y: event.clientY };
+    if (pastFilms) return;
+    if (dx * dx + dy * dy < 16) return;
+    wakeRail();
+  });
+
+  if (rail instanceof HTMLElement) {
+    rail.addEventListener("pointerleave", () => {
+      if (!pastFilms) wakeRail();
+    });
+    rail.addEventListener("focusout", () => {
+      window.setTimeout(() => {
+        if (!pastFilms) wakeRail();
+      }, 0);
+    });
+  }
+
+  function wheelDelta(event: WheelEvent): number {
+    if (event.deltaMode === 1) return event.deltaY * 16;
+    if (event.deltaMode === 2) return event.deltaY * window.innerHeight;
+    return event.deltaY;
+  }
+
+  let carry = 0;
+  let carryTimer = 0;
+  let sameWayUntil = 0;
+
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.ctrlKey || creditsOpen()) return;
+      const delta = wheelDelta(event);
+      if (delta === 0 || Math.abs(event.deltaX) > Math.abs(delta)) return;
+      const direction = delta > 0 ? 1 : -1;
+      if (footerRoom(direction)) return;
+      event.preventDefault();
+      if (!pastFilms) wakeRail();
+      // One gesture moves one piece. A wheel the other way can turn around
+      // before the first piece has finished sliding.
+      if (
+        dragging ||
+        (direction === scrollDir && (travel || performance.now() < sameWayUntil))
+      ) {
+        return;
+      }
+      window.clearTimeout(carryTimer);
+      carryTimer = window.setTimeout(() => {
+        carry = 0;
+      }, 160);
+      carry += delta;
+      if (Math.abs(carry) < 36) return;
+      carry = 0;
+      sameWayUntil = performance.now() + 900;
+      goDock(dock + direction);
+    },
+    { passive: false },
+  );
+
+  // A finger follows the cover for one piece, then the scroll finishes that piece.
+  let drag: {
+    x: number;
+    y: number;
+    scroll: number;
+    dock: number;
+    id: number;
+    hijack: boolean;
+  } | null = null;
+  let swallowClick = false;
+
+  function dragBlocked(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return true;
+    return Boolean(
+      target.closest(
+        "input, textarea, select, a, button, .film-rail, .film-top, .site-footer",
+      ),
+    );
+  }
+
+  document.addEventListener(
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1 || creditsOpen() || dragBlocked(event.target))
+        return;
+      const touch = event.touches[0];
+      if (!touch) return;
+      drag = {
+        x: touch.clientX,
+        y: touch.clientY,
+        scroll: window.scrollY,
+        dock,
+        id: touch.identifier,
+        hijack: false,
+      };
+    },
+    { passive: true },
+  );
+
+  document.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!drag) return;
+      const touch = [...event.touches].find((item) => item.identifier === drag?.id);
+      if (!touch || !drag) return;
+      const dx = touch.clientX - drag.x;
+      const dy = touch.clientY - drag.y;
+      if (!drag.hijack) {
+        if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+          drag = null;
+          return;
+        }
+        if (Math.abs(dy) < 8) return;
+        const direction = dy < 0 ? 1 : -1;
+        if (footerRoom(direction)) {
+          drag = null;
+          return;
+        }
+        drag.hijack = true;
+        dragging = true;
+        if (!pastFilms) wakeRail();
+      }
+      if (!event.cancelable) return;
+      event.preventDefault();
+      const min = stopTop(Math.max(0, drag.dock - 1));
+      const max = stopTop(Math.min(slideList().length, drag.dock + 1));
+      const y = Math.min(max, Math.max(min, drag.scroll + (drag.y - touch.clientY)));
+      if (y > drag.scroll + 8) scrollDir = 1;
+      else if (y < drag.scroll - 8) scrollDir = -1;
+      window.scrollTo(0, y);
+    },
+    { passive: false },
+  );
+
+  function endDrag(event: TouchEvent): void {
+    if (!drag) return;
+    const touch = [...event.changedTouches].find(
+      (item) => item.identifier === drag?.id,
+    );
+    const started = drag;
+    drag = null;
+    if (started.hijack) travel = true;
+    dragging = false;
+    if (!touch || !started.hijack) return;
+    const moved = window.scrollY - started.scroll;
+    swallowClick = Math.abs(moved) > 10;
+    const pitch = slidePitch();
+    let target = started.dock;
+    if (moved > pitch * 0.18) target = started.dock + 1;
+    else if (moved < pitch * -0.18) target = started.dock - 1;
+    goDock(target);
+  }
+
+  document.addEventListener("touchend", endDrag);
+  document.addEventListener("touchcancel", endDrag);
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      updatePastFilms();
+    },
+    { passive: true },
+  );
+
+  window.addEventListener("scrollend", () => {
+    if (travel || dragging) return;
+    const focused = document.activeElement;
+    if (focused instanceof Element && focused.closest(".site-footer")) {
+      dock = slideList().length;
+      updatePastFilms();
+      return;
+    }
+    const y = window.scrollY;
+    const last = slideList().length;
+    const footerTop = stopTop(last);
+    if (y > footerTop + 24) {
+      dock = last;
+      updatePastFilms();
+      return;
+    }
+    let best = 0;
+    let bestDist = Infinity;
+    for (let index = 0; index <= last; index += 1) {
+      const dist = Math.abs(stopTop(index) - y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = index;
+      }
+    }
+    if (bestDist > 2) goDock(best);
+    else dock = best;
+  });
+
+  syncDock();
+  updatePastFilms();
 </script>
