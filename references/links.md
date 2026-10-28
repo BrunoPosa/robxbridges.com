@@ -265,6 +265,5 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
   - poster: public/films/lost.jpg
 
 ## Collaborations
--not/local project
 
 ## About
