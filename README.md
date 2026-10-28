@@ -38,7 +38,7 @@ The large cover is the release in view. Bandcamp’s player sits on the right, a
 
 ## Films
 
-The films page plays every YouTube film under Films in `references/links.md`, in that order. Each film fills the screen. The next one comes in on scroll. Aryk stays first and starts at the `t=` time in its link. The bar under the picture shows the title, and a summary when that indented line is there. Sound starts off. One film plays at a time. Marks on the left show which piece is on screen. Hovering them shows the titles, and choosing one moves to that piece. Top, under the header, returns to the first film from anywhere on the page.
+The films page plays every YouTube film under Films in `references/links.md`, in that order. Each film fills the screen. On scroll, the next one slides up over the current one and starts playing. YouTube’s own captions and sound stay on the picture. Aryk stays first and starts at the `t=` time in its link. The bar under the picture shows the title, and a summary when that indented line is there. Sound starts off. One film plays at a time. Marks on the left show which piece is on screen. Hovering them shows the titles, and choosing one moves to that piece. Top, under the header, returns to the first film from anywhere on the page.
 
 A `credits` line stays hidden until the visitor presses Credits. That opens the words on a dim layer over the picture. Pieces without a credits line have no Credits button.
 

@@ -110,8 +110,8 @@ function indexLabel(index: number): string {
                 Play
               </button>
               <div class="film-player"></div>
-              {/* Sits over the picture so a scroll still moves to the next film.
-                  The bottom strip stays open for the player controls. */}
+              {/* The middle catches a scroll. YouTube's captions and sound
+                  stay outside this layer so those buttons can be clicked. */}
               <div class="film-scroll"></div>
             </>
           )}
@@ -165,11 +165,12 @@ function indexLabel(index: number): string {
 </Base>
 
 <script>
-  // One YouTube player at a time. Aryk starts on its own, muted, because a
-  // browser will not start sound by itself. Sound keeps that choice for the
-  // next YouTube film. A Chinese Dictionary piece shows its still, and loads
-  // one Instagram embed only while it is the piece on screen.
-  // prefers-reduced-motion waits for Play.
+  // The film in front plays. The one it covers stays paused on its last frame
+  // until you move on. Aryk starts on its own, muted, because a browser will
+  // not start sound by itself. Sound keeps that choice for the next YouTube
+  // film. YouTube's own captions and sound stay clickable. A Chinese Dictionary
+  // piece shows its still, and loads one Instagram embed only while it is the
+  // piece on screen. prefers-reduced-motion waits for Play.
 
   interface YouTubePlayer {
     destroy: () => void;
@@ -177,7 +178,7 @@ function indexLabel(index: number): string {
     unMute: () => void;
     playVideo: () => void;
     pauseVideo: () => void;
-    getPlayerState: () => number;
+    isMuted: () => boolean;
     getIframe: () => HTMLIFrameElement;
   }
 
@@ -196,7 +197,6 @@ function indexLabel(index: number): string {
     Player: new (element: HTMLElement, options: YouTubePlayerOptions) => YouTubePlayer;
   }
 
-  const PLAYING = 1;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function syncHeader(): void {
@@ -214,12 +214,25 @@ function indexLabel(index: number): string {
 
   let soundOn = false;
   let active: HTMLElement | null = null;
-  let player: YouTubePlayer | null = null;
-  let mode: "api" | "plain" | "none" = "none";
-  let token = 0;
+  let parked: HTMLElement | null = null;
+  const players = new Map<HTMLElement, YouTubePlayer>();
+  const modes = new Map<HTMLElement, "api" | "plain" | "instagram">();
+  const tokens = new WeakMap<HTMLElement, number>();
   let pending = 0;
   let apiReady: Promise<void> | null = null;
   let topTimer = 0;
+
+  function slideList(): HTMLElement[] {
+    return [...document.querySelectorAll(".film-slide")].filter(
+      (slide): slide is HTMLElement => slide instanceof HTMLElement,
+    );
+  }
+
+  function bump(slide: HTMLElement): number {
+    const mine = (tokens.get(slide) ?? 0) + 1;
+    tokens.set(slide, mine);
+    return mine;
+  }
 
   function pageWindow(): Window & {
     YT?: YouTubeNamespace;
@@ -301,25 +314,60 @@ function indexLabel(index: number): string {
     return apiReady;
   }
 
-  function dropPlayer(): void {
+  function destroyPlayer(slide: HTMLElement): void {
+    const existing = players.get(slide);
     try {
-      player?.destroy();
+      existing?.destroy();
     } catch {
       // A player that never finished loading can already be gone.
     }
-    player = null;
-    mode = "none";
-  }
-
-  function stop(slide: HTMLElement): void {
-    token += 1;
-    dropPlayer();
+    players.delete(slide);
+    modes.delete(slide);
     const embed = slide.querySelector(".film-embed-frame");
     if (embed) embed.replaceChildren();
     else slide.querySelector(".film-player")?.replaceChildren();
     slide.classList.remove("is-playing");
     showPlay(slide);
     closeCredits(slide);
+  }
+
+  // YouTube's own speaker is the control on the picture. Remember it for the next film.
+  function rememberSound(slide: HTMLElement): void {
+    const existing = players.get(slide);
+    if (modes.get(slide) !== "api" || !existing) return;
+    try {
+      soundOn = !existing.isMuted();
+      syncSound();
+    } catch {
+      // Keep the last choice if the player cannot answer.
+    }
+  }
+
+  // Pause, and leave the picture up, so the next film can slide over it.
+  function hold(slide: HTMLElement): void {
+    const existing = players.get(slide);
+    if (modes.get(slide) === "api" && existing) {
+      try {
+        existing.pauseVideo();
+      } catch {
+        // The frame can stay even if pause does not land.
+      }
+    }
+    closeCredits(slide);
+  }
+
+  function stop(slide: HTMLElement): void {
+    bump(slide);
+    destroyPlayer(slide);
+    if (parked === slide) parked = null;
+  }
+
+  function playerStarting(slide: HTMLElement): boolean {
+    return Boolean(
+      slide.querySelector(
+        ".film-player iframe, .film-player div, .film-embed-frame iframe",
+      ),
+    );
   }
 
   function fit(frame: HTMLIFrameElement, title: string): void {
@@ -335,23 +383,31 @@ function indexLabel(index: number): string {
   function mountPlain(slide: HTMLElement, mine: number): void {
     const holder = slide.querySelector(".film-player");
     const videoId = slide.dataset.youtubeId ?? "";
-    if (!(holder instanceof HTMLElement) || !videoId || mine !== token) return;
+    if (!(holder instanceof HTMLElement) || !videoId || mine !== tokens.get(slide))
+      return;
     const start = slide.dataset.start || "0";
     const frame = document.createElement("iframe");
     const mute = soundOn ? "0" : "1";
-    frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&mute=${mute}&start=${encodeURIComponent(start)}&playsinline=1&rel=0`;
+    frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&mute=${mute}&start=${encodeURIComponent(start)}&playsinline=1&rel=0&controls=1`;
     fit(frame, slide.dataset.title || "Film");
     holder.replaceChildren(frame);
-    mode = "plain";
+    modes.set(slide, "plain");
     slide.classList.add("is-playing");
   }
 
   function mount(slide: HTMLElement): void {
-    const mine = ++token;
+    const mine = bump(slide);
     const holder = slide.querySelector(".film-player");
     const videoId = slide.dataset.youtubeId ?? "";
     if (!(holder instanceof HTMLElement) || !videoId) return;
-    dropPlayer();
+    const existing = players.get(slide);
+    try {
+      existing?.destroy();
+    } catch {
+      // Replacing a player that never finished loading.
+    }
+    players.delete(slide);
+    modes.delete(slide);
     holder.replaceChildren();
     const start = Number(slide.dataset.start || "0");
     const title = slide.dataset.title || "Film";
@@ -361,7 +417,7 @@ function indexLabel(index: number): string {
     ensureApi()
       .then(() => {
         const yt = readYouTube();
-        if (!yt || mine !== token || active !== slide) return;
+        if (!yt || mine !== tokens.get(slide) || active !== slide) return;
         new yt.Player(slot, {
           videoId,
           width: "100%",
@@ -373,17 +429,18 @@ function indexLabel(index: number): string {
             start: Number.isFinite(start) ? start : 0,
             playsinline: 1,
             rel: 0,
+            controls: 1,
             modestbranding: 1,
             origin: window.location.origin,
           },
           events: {
             onReady(event) {
-              if (mine !== token || active !== slide) {
+              if (mine !== tokens.get(slide) || active !== slide) {
                 event.target.destroy();
                 return;
               }
-              player = event.target;
-              mode = "api";
+              players.set(slide, event.target);
+              modes.set(slide, "api");
               fit(event.target.getIframe(), title);
               if (soundOn) event.target.unMute();
               else event.target.mute();
@@ -394,13 +451,13 @@ function indexLabel(index: number): string {
         });
       })
       .catch(() => {
-        if (mine !== token || active !== slide) return;
+        if (mine !== tokens.get(slide) || active !== slide) return;
         mountPlain(slide, mine);
       });
   }
 
   function mountEmbed(slide: HTMLElement): void {
-    const mine = ++token;
+    const mine = bump(slide);
     const holder = slide.querySelector(".film-embed-frame");
     const src = slide.dataset.instagram ?? "";
     if (!(holder instanceof HTMLElement) || !src) return;
@@ -414,32 +471,100 @@ function indexLabel(index: number): string {
     frame.setAttribute("allowfullscreen", "");
     frame.referrerPolicy = "strict-origin-when-cross-origin";
     frame.addEventListener("load", () => {
-      if (mine !== token || active !== slide) return;
+      if (mine !== tokens.get(slide) || active !== slide) return;
+      modes.set(slide, "instagram");
       slide.classList.add("is-playing");
     });
     holder.replaceChildren(frame);
   }
 
+  function resume(slide: HTMLElement): void {
+    const existing = players.get(slide);
+    if (modes.get(slide) === "api" && existing) {
+      if (soundOn) existing.unMute();
+      else existing.mute();
+      existing.playVideo();
+      slide.classList.add("is-playing");
+      const play = slide.querySelector(".film-play");
+      if (play instanceof HTMLButtonElement) play.hidden = true;
+      return;
+    }
+    if (slide.dataset.instagram) mountEmbed(slide);
+    else mount(slide);
+  }
+
+  function releaseOthers(keep: HTMLElement, also: HTMLElement | null): void {
+    for (const slide of slideList()) {
+      if (slide === keep || slide === also) continue;
+      if (
+        players.has(slide) ||
+        modes.has(slide) ||
+        slide.classList.contains("is-playing")
+      ) {
+        stop(slide);
+      }
+    }
+  }
+
   function activate(slide: HTMLElement, autoplay: boolean): void {
-    if (active === slide && slide.classList.contains("is-playing")) return;
-    if (active && active !== slide) stop(active);
+    if (
+      active === slide &&
+      (slide.classList.contains("is-playing") ||
+        playerStarting(slide) ||
+        players.has(slide))
+    ) {
+      return;
+    }
+    const previous = active;
+    const previousIndex = previous ? slideList().indexOf(previous) : -1;
+    const nextIndex = slideList().indexOf(slide);
+    const adjacent =
+      previous !== null &&
+      previousIndex >= 0 &&
+      Math.abs(previousIndex - nextIndex) === 1;
+
+    if (previous && previous !== slide) {
+      rememberSound(previous);
+      if (adjacent && !reduced) hold(previous);
+      else stop(previous);
+    }
+
     active = slide;
+    parked = previous && previous !== slide && adjacent && !reduced ? previous : null;
+    releaseOthers(slide, parked);
+    for (const layer of document.querySelectorAll(".film-scroll")) {
+      if (layer instanceof HTMLElement) layer.style.pointerEvents = "";
+    }
     markRail(slide);
     const playable = Boolean(slide.dataset.youtubeId || slide.dataset.instagram);
     if (!autoplay || !playable) return;
     const play = slide.querySelector(".film-play");
     if (play instanceof HTMLButtonElement) play.hidden = true;
+    if (players.has(slide)) {
+      resume(slide);
+      return;
+    }
     if (slide.dataset.instagram) mountEmbed(slide);
     else mount(slide);
   }
 
   function choose(): void {
+    const slides = slideList();
     let best: HTMLElement | null = null;
-    let bestRatio = 0.55;
-    for (const [element, ratio] of ratios) {
-      if (ratio >= bestRatio && element instanceof HTMLElement) {
-        best = element;
-        bestRatio = ratio;
+    if (reduced) {
+      let bestRatio = 0.55;
+      for (const slide of slides) {
+        const ratio = ratios.get(slide) ?? 0;
+        if (ratio >= bestRatio) {
+          best = slide;
+          bestRatio = ratio;
+        }
+      }
+    } else {
+      // The film sliding up is later in the page. Take it once it covers
+      // enough of the screen, even though the paused one is still underneath.
+      for (const slide of slides) {
+        if ((ratios.get(slide) ?? 0) >= 0.42) best = slide;
       }
     }
     if (!best || best === active) return;
@@ -450,12 +575,13 @@ function indexLabel(index: number): string {
     soundOn = on;
     syncSound();
     if (!active?.dataset.youtubeId) return;
-    if (mode === "api" && player) {
+    const existing = players.get(active);
+    if (modes.get(active) === "api" && existing) {
       if (on) {
-        player.unMute();
-        player.playVideo();
+        existing.unMute();
+        existing.playVideo();
       } else {
-        player.mute();
+        existing.mute();
       }
       return;
     }
@@ -503,8 +629,15 @@ function indexLabel(index: number): string {
   function goToSlide(slide: HTMLElement): void {
     const header = document.querySelector(".site-header");
     const headerHeight = header instanceof HTMLElement ? header.offsetHeight : 0;
-    const top = slide.getBoundingClientRect().top + window.scrollY - headerHeight;
-    scrollFilmsTo(top);
+    // offsetTop stays at the film's place in the page. A stuck film's
+    // getBoundingClientRect would point at the header instead.
+    let top = 0;
+    let node: HTMLElement | null = slide;
+    while (node) {
+      top += node.offsetTop;
+      node = node.offsetParent instanceof HTMLElement ? node.offsetParent : null;
+    }
+    scrollFilmsTo(top - headerHeight);
   }
 
   const observer = new IntersectionObserver(
@@ -513,7 +646,7 @@ function indexLabel(index: number): string {
       window.clearTimeout(pending);
       pending = window.setTimeout(choose, 160);
     },
-    { threshold: [0.2, 0.4, 0.55, 0.75] },
+    { threshold: [0.2, 0.42, 0.6, 0.85] },
   );
 
   for (const slide of document.querySelectorAll(".film-slide")) {
@@ -595,13 +728,62 @@ function indexLabel(index: number): string {
     rail.classList.remove("is-open");
   });
 
-  for (const layer of document.querySelectorAll(".film-scroll")) {
-    layer.addEventListener("click", () => {
-      const slide = layer.closest(".film-slide");
-      if (!(slide instanceof HTMLElement)) return;
-      if (mode !== "api" || !player || active !== slide) return;
-      if (player.getPlayerState() === PLAYING) player.pauseVideo();
-      else player.playVideo();
+  // A resting pointer over the middle of the picture scrolls to the next film.
+  // Moving that pointer steps the layer aside so YouTube can take the click.
+  // Captions and sound sit outside the layer, so they stay clickable either way.
+  // Once the pointer is on YouTube's own bar, the layer stays aside until it leaves.
+  if (finePointer.matches) {
+    let restore = 0;
+    let onChrome = false;
+
+    const catcher = (): HTMLElement | null => {
+      const layer = active?.querySelector(".film-scroll");
+      return layer instanceof HTMLElement ? layer : null;
+    };
+
+    const aside = (layer: HTMLElement) => {
+      layer.style.pointerEvents = "none";
+    };
+
+    const arm = (layer: HTMLElement) => {
+      if (onChrome) return;
+      layer.style.pointerEvents = "";
+    };
+
+    for (const layer of document.querySelectorAll(".film-scroll")) {
+      if (!(layer instanceof HTMLElement)) continue;
+      const stepAside = () => {
+        if (onChrome) return;
+        aside(layer);
+        window.clearTimeout(restore);
+        restore = window.setTimeout(() => arm(layer), 1400);
+      };
+      layer.addEventListener("pointermove", stepAside);
+      layer.addEventListener("pointerrawupdate", stepAside);
+    }
+
+    const overStage = (x: number, y: number): boolean => {
+      const stage = active?.querySelector(".film-stage");
+      if (!(stage instanceof HTMLElement)) return false;
+      const rect = stage.getBoundingClientRect();
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    };
+
+    document.addEventListener("mouseout", (event) => {
+      if (event.relatedTarget !== null) return;
+      const layer = catcher();
+      if (!layer || !overStage(event.clientX, event.clientY)) return;
+      onChrome = true;
+      window.clearTimeout(restore);
+      aside(layer);
+    });
+
+    document.addEventListener("mousemove", (event) => {
+      const layer = catcher();
+      if (!layer || overStage(event.clientX, event.clientY)) return;
+      onChrome = false;
+      window.clearTimeout(restore);
+      layer.style.pointerEvents = "";
     });
   }
 </script>

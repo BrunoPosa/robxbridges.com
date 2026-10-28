@@ -29,7 +29,7 @@ Write the bio as normal paragraphs under About. A blank line starts a new paragr
 - Photo: public/images/about.jpg
 ```
 
-The films page plays the YouTube films in this order, one per screen. Scrolling moves to the next. Aryk starts at its start time. The Chinese Dictionary pieces come after them. Each one needs the Instagram post link and an indented `poster` line, a still in `public/films/`. The video stays on Instagram. A `credits` line stays hidden until the visitor opens Credits.
+The films page plays the YouTube films in this order, one per screen. Scrolling slides the next one up over the current one. Aryk starts at its start time. The Chinese Dictionary pieces come after them. Each one needs the Instagram post link and an indented `poster` line, a still in `public/films/`. The video stays on Instagram. A `credits` line stays hidden until the visitor opens Credits.
 
 The music page plays every release under Music, in the order written here. Each release is its own heading. Under it, give the Bandcamp link, the player number, and the cover file. A single is just those three lines. An album lists its tracks underneath, in order. A track with a video uses a YouTube link, then an indented `player` line with that track’s Bandcamp number. A track without a video is the title alone, then the same `player` line. `Credit` shows above the player on that release. Cover files should be about 800 pixels on the long side.
 

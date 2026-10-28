@@ -118,11 +118,12 @@ main {
 
 .hero h1 {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 500;
+  /* Heavy grotesque so the name still reads where the reeds cross the letters. */
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
   font-size: clamp(4.2rem, 9vw, 8rem);
-  line-height: 0.84;
-  letter-spacing: 0.01em;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
 }
 
 .hero h1 span {
@@ -145,8 +146,8 @@ main {
   min-height: calc(100dvh - var(--header));
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 2.5rem 0 4rem;
+  justify-content: flex-start;
+  padding: clamp(2.5rem, 6vh, 4.5rem) 0 4rem;
 }
 
 .album-page h1 {
@@ -164,12 +165,16 @@ main {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(17.5rem, 0.8fr);
   gap: clamp(1.25rem, 2.5vw, 2rem);
-  align-items: center;
+  align-items: start;
 }
 
 .album-cover-link {
   display: block;
   min-width: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  line-height: 0;
+  box-shadow: 0 0 0 1px rgba(236, 231, 220, 0.16);
 }
 
 .album-panel {
@@ -242,11 +247,15 @@ main {
   height: auto;
   aspect-ratio: 1;
   object-fit: cover;
-  transition: opacity 320ms ease;
+  border-radius: 14px;
+  transition:
+    opacity 320ms ease,
+    transform 320ms ease;
 }
 
 .album-cover.is-fading {
   opacity: 0;
+  transform: translateY(0.75rem) scale(0.985);
 }
 
 .release-credit {
@@ -447,7 +456,10 @@ html:has(.reel) {
 }
 
 html:has(.reel) .site-footer {
+  position: relative;
+  z-index: 2;
   scroll-snap-align: start;
+  background: var(--black);
 }
 
 .reel {
@@ -469,7 +481,8 @@ html:has(.reel) .site-footer {
 .film-top {
   position: fixed;
   z-index: 5;
-  top: calc(var(--header-live, var(--header)) + 1.65rem);
+  /* Below YouTube's top row, where captions and sound sit. */
+  top: calc(var(--header-live, var(--header)) + 4.75rem);
   right: 1.25rem;
   padding: 0.55rem 0.85rem;
   border: 1px solid var(--forest);
@@ -579,10 +592,17 @@ html:has(.reel) .site-footer {
   .film-rail-name {
     transition: none;
   }
+
+  .film-slide {
+    position: relative;
+    top: auto;
+  }
 }
 
 .film-slide {
-  position: relative;
+  position: sticky;
+  top: var(--header-live, var(--header));
+  z-index: 1;
   display: flex;
   flex-direction: column;
   height: calc(100dvh - var(--header-live, var(--header)));
@@ -689,16 +709,40 @@ html:has(.reel) .site-footer {
   background: transparent;
 }
 
+/* YouTube's own buttons stay clickable.
+   Captions and sound are on the top row, the timeline is on the bottom,
+   and play sits in the middle. The even-odd cutout is that play button. */
 .film-scroll {
   position: absolute;
   z-index: 1;
-  inset: 0 0 4.5rem 0;
+  top: 5.5rem;
+  right: 0;
+  bottom: 8rem;
+  left: 0;
   pointer-events: none;
+  clip-path: polygon(
+    evenodd,
+    0 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 0,
+    calc(50% - 4.25rem) calc(50% - 4.25rem),
+    calc(50% - 4.25rem) calc(50% + 4.25rem),
+    calc(50% + 4.25rem) calc(50% + 4.25rem),
+    calc(50% + 4.25rem) calc(50% - 4.25rem),
+    calc(50% - 4.25rem) calc(50% - 4.25rem)
+  );
 }
 
 .film-slide.is-playing .film-scroll {
   pointer-events: auto;
-  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .film-scroll {
+    display: none;
+  }
 }
 
 .film-copy .film-kicker {
@@ -831,6 +875,7 @@ html:has(.reel) .site-footer {
   }
 
   .film-top {
+    top: calc(var(--header-live, var(--header)) + 8rem);
     right: 1rem;
   }
 
