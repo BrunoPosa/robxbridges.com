@@ -129,7 +129,7 @@ const playing = releases[0];
           <div class="album-progress" aria-hidden="true">
             <span
               class="album-progress-bar"
-              style={`width:${(100 / releases.length).toFixed(4)}%`}
+              style={`--count:${releases.length};width:${(100 / releases.length).toFixed(4)}%`}
             />
           </div>
           <p class="release-credit" hidden={!playing.credit}>
@@ -338,6 +338,13 @@ const playing = releases[0];
   }
 
   if (album instanceof HTMLElement && releases.length > 0) {
+    // The line is already one step wide. Allow it to ease only after that paints.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (progressBar instanceof HTMLElement) progressBar.classList.add("is-ready");
+      });
+    });
+
     if (coverImg instanceof HTMLImageElement) {
       const initial = coverImg.getAttribute("src") || "";
       if (coverImg.complete && coverImg.naturalWidth > 0) remember(initial);

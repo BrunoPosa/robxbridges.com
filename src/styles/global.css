@@ -337,8 +337,9 @@ main {
 }
 
 /* One line under the counter. Its width is how far through the list you are.
-   A scale would leave the full-width box in the layout and let a phone
-   pinch out to see it. The width stays a percentage of this column. */
+   The first release is already one step wide. A width transition on load
+   would start from the full column and shrink, so motion waits until the
+   line has painted. */
 .album-progress {
   flex: none;
   width: 100%;
@@ -350,9 +351,13 @@ main {
 
 .album-progress-bar {
   display: block;
+  width: calc(100% / var(--count, 20));
   height: 100%;
   max-width: 100%;
   background: var(--bone);
+}
+
+.album-progress-bar.is-ready {
   transition: width 320ms ease;
 }
 
@@ -457,7 +462,8 @@ main {
 
 @media (prefers-reduced-motion: reduce) {
   .album-cover,
-  .album-progress-bar {
+  .album-progress-bar,
+  .album-progress-bar.is-ready {
     transition: none;
   }
 }
