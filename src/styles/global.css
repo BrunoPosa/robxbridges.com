@@ -67,7 +67,11 @@ main {
 
 .hero {
   position: relative;
-  min-height: 100dvh;
+  /* Phone browsers hide the address bar as you scroll. 100dvh grows with that
+     bar and the cover photo zooms. 100svh is the height while the bar is
+     showing, and it does not change. The 100vh line is only for old browsers. */
+  min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
