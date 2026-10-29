@@ -63,7 +63,6 @@ const playing = releases[0];
     {playing && (
       <div
         class="album"
-        style={`--count:${releases.length};--at:0`}
         tabindex="0"
         role="region"
         aria-roledescription="carousel"
@@ -126,8 +125,12 @@ const playing = releases[0];
               </svg>
             </button>
           </div>
+          <!-- How far through the list this release is. First is 1 of N, last fills the column. -->
           <div class="album-progress" aria-hidden="true">
-            <span class="album-progress-bar" />
+            <span
+              class="album-progress-bar"
+              style={`width:${(100 / releases.length).toFixed(4)}%`}
+            />
           </div>
           <p class="release-credit" hidden={!playing.credit}>
             {playing.credit}
@@ -176,6 +179,7 @@ const playing = releases[0];
   const coverImg = document.querySelector(".album-cover");
   const frame = document.querySelector(".player");
   const indexLabel = document.querySelector(".album-index-current");
+  const progressBar = document.querySelector(".album-progress-bar");
   const credit = document.querySelector(".release-credit");
   const videos = document.querySelector(".release-videos");
   const live = document.querySelector(".album-live");
@@ -283,7 +287,9 @@ const playing = releases[0];
       frame.style.height = `${release.height}px`;
       frame.height = String(release.height);
     }
-    if (album instanceof HTMLElement) album.style.setProperty("--at", String(next));
+    if (progressBar instanceof HTMLElement) {
+      progressBar.style.width = `${((next + 1) / releases.length) * 100}%`;
+    }
     if (indexLabel) indexLabel.textContent = String(next + 1).padStart(2, "0");
     if (prevButton instanceof HTMLButtonElement) prevButton.disabled = next === 0;
     if (nextButton instanceof HTMLButtonElement) {

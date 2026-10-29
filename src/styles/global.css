@@ -146,6 +146,7 @@ main {
 
 .album-page {
   width: min(68rem, calc(100% - 4rem));
+  max-width: 100%;
   margin: 0 auto;
   min-height: calc(100dvh - var(--header));
   display: flex;
@@ -170,6 +171,8 @@ main {
   grid-template-columns: minmax(0, 1.2fr) minmax(17.5rem, 0.8fr);
   gap: clamp(1.25rem, 2.5vw, 2rem);
   align-items: start;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .album-cover-link {
@@ -280,6 +283,8 @@ main {
 .player-frame {
   position: relative;
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid rgba(236, 231, 220, 0.16);
   border-radius: 14px;
   background: #303030;
@@ -294,6 +299,8 @@ main {
 .player {
   display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 0;
   background: #303030;
   overscroll-behavior: contain;
@@ -329,21 +336,24 @@ main {
   color: var(--bone);
 }
 
+/* One line under the counter. Its width is how far through the list you are.
+   A scale would leave the full-width box in the layout and let a phone
+   pinch out to see it. The width stays a percentage of this column. */
 .album-progress {
   flex: none;
+  width: 100%;
+  max-width: 100%;
   height: 1px;
   margin: 0 0 1.15rem;
-  background: rgba(236, 231, 220, 0.16);
+  overflow: hidden;
 }
 
 .album-progress-bar {
   display: block;
-  width: 100%;
   height: 100%;
+  max-width: 100%;
   background: var(--bone);
-  transform: scaleX(calc((var(--at, 0) + 1) / var(--count, 1)));
-  transform-origin: left center;
-  transition: transform 320ms ease;
+  transition: width 320ms ease;
 }
 
 .sheet {
@@ -431,7 +441,7 @@ main {
   }
 
   .album {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     gap: 1.25rem;
   }
