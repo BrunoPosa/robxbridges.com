@@ -62,6 +62,10 @@ export type Collaboration = {
   project?: string;
   year?: string;
   instagram?: string;
+  // A square cover in public/images/collabs/, shown beside the name.
+  cover?: string;
+  // The Bandcamp track number. With it, the row gets a player.
+  playerId?: string;
 };
 
 export type Catalog = {
@@ -197,6 +201,11 @@ const CatalogShape = z.object({
       project: z.string().min(1).optional(),
       year: z.string().min(1).optional(),
       instagram: httpsUrl.optional(),
+      cover: z.string().min(1).optional(),
+      playerId: z
+        .string()
+        .regex(/^\d{6,12}$/)
+        .optional(),
     }),
   ),
   about: z.string(),
@@ -333,6 +342,15 @@ function videoFile(value: string, lineNo: number): string {
   const filePath = localFile(value, lineNo, "video");
   if (!/^public\/films\/[a-z0-9-]+\.mp4$/.test(filePath)) {
     fail(lineNo, "video needs a path like public/films/flow.mp4.");
+  }
+  return filePath;
+}
+
+// A collaboration cover.
+function collabCoverFile(value: string, lineNo: number): string {
+  const filePath = localFile(value, lineNo, "cover");
+  if (!/^public\/images\/collabs\/[a-z0-9-]+\.jpg$/.test(filePath)) {
+    fail(lineNo, "cover needs a path like public/images/collabs/2-disrupt.jpg.");
   }
   return filePath;
 }
@@ -663,7 +681,11 @@ export function parseCatalog(source: string): Catalog {
         else if (bullet.label === "summary") last.item.summary = value;
         else last.item.credits = value;
       } else if (last.kind === "dictionary") {
-        const value = noteValue(bullet, ["summary", "credits", "poster", "video"], lineNo);
+        const value = noteValue(
+          bullet,
+          ["summary", "credits", "poster", "video"],
+          lineNo,
+        );
         if (bullet.label === "summary") last.item.summary = value;
         else if (bullet.label === "credits") last.item.credits = value;
         else if (bullet.label === "video") {
@@ -686,12 +708,21 @@ export function parseCatalog(source: string): Catalog {
       } else {
         const value = noteValue(
           bullet,
-          ["role", "project", "year", "instagram"],
+          ["role", "project", "year", "cover", "player", "instagram"],
           lineNo,
         );
         if (bullet.label === "role") last.item.role = value;
         else if (bullet.label === "project") last.item.project = value;
-        else last.item.year = value;
+        else if (bullet.label === "year") last.item.year = value;
+        else if (bullet.label === "cover") {
+          if (last.item.cover) fail(lineNo, "cover is already set.");
+          last.item.cover = collabCoverFile(value, lineNo);
+        } else {
+          if (!/^\d{6,12}$/.test(value)) {
+            fail(lineNo, "player is the number after track= in Bandcamp's embed code.");
+          }
+          last.item.playerId = value;
+        }
       }
       continue;
     }
@@ -901,6 +932,13 @@ export function loadCatalog(root = process.cwd()): Catalog {
       );
     }
   }
+  for (const collaboration of catalog.collaborations) {
+    if (collaboration.cover && !fs.existsSync(path.join(root, collaboration.cover))) {
+      throw new CatalogError(
+        `references/links.md — cover file not found: ${collaboration.cover}`,
+      );
+    }
+  }
   for (const piece of catalog.dictionary) {
     if (!fs.existsSync(path.join(root, piece.poster))) {
       throw new CatalogError(
@@ -914,6 +952,19 @@ export function loadCatalog(root = process.cwd()): Catalog {
     }
   }
   return catalog;
+}
+
+// The address of Bandcamp's own player for one album or track. The music page
+// and the collaborations page both use it, so the players look the same.
+// Bandcamp ignores a custom dark background, so bgcol is its own gray.
+export const bandcampPlayerGray = "303030";
+
+export function bandcampPlayerSrc(
+  kind: "album" | "track",
+  playerId: string,
+  tracklist: boolean,
+): string {
+  return `https://bandcamp.com/EmbeddedPlayer/${kind}=${playerId}/size=large/bgcol=${bandcampPlayerGray}/linkcol=ece7dc/tracklist=${tracklist}/artwork=none/transparent=true/`;
 }
 
 export function publicSrc(repoPath: string): string {

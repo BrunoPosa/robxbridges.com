@@ -8,7 +8,7 @@
 // Tracks with a YouTube link show a still under the player that opens the video.
 import Base from "../layouts/Base.astro";
 import VideoDialog from "../components/VideoDialog.astro";
-import { loadCatalog, publicSrc, type Album } from "../data/catalog";
+import { bandcampPlayerSrc, loadCatalog, publicSrc, type Album } from "../data/catalog";
 
 type ReleaseData = {
   title: string;
@@ -25,15 +25,9 @@ type ReleaseData = {
 const catalog = loadCatalog();
 const albums = catalog.music.albums;
 
-// Bandcamp's large player uses its own dark gray. A custom dark bgcol is
-// ignored, so the card around it uses the same gray.
-const playerBg = "303030";
-
 function playerSrc(album: Album): string {
-  const id =
-    album.kind === "track" ? `track=${album.playerId}` : `album=${album.playerId}`;
   const tracklist = album.kind === "album" && album.tracks.length > 1;
-  return `https://bandcamp.com/EmbeddedPlayer/${id}/size=large/bgcol=${playerBg}/linkcol=ece7dc/tracklist=${tracklist}/artwork=none/transparent=true/`;
+  return bandcampPlayerSrc(album.kind, album.playerId, tracklist);
 }
 
 // The transport is about 120px and each track row is about 32px. The extra

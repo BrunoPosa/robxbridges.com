@@ -330,6 +330,32 @@ test("a collaboration may add an Instagram link, and only Instagram", () => {
   );
 });
 
+test("a collaboration may add a cover and a Bandcamp player number", () => {
+  const withBoth = sample().replace(
+    "  - year: 2024",
+    "  - year: 2024\n  - cover: public/images/collabs/ada.jpg\n  - player: 1234567890",
+  );
+  const collaboration = parseCatalog(withBoth).collaborations[0];
+  assert.equal(collaboration?.cover, "public/images/collabs/ada.jpg");
+  assert.equal(collaboration?.playerId, "1234567890");
+  fails(
+    sample().replace("  - year: 2024", "  - year: 2024\n  - player: track=12"),
+    /track=/,
+  );
+  fails(
+    sample().replace("  - year: 2024", "  - year: 2024\n  - cover: public/ada.png"),
+    /public\/images\/collabs/,
+  );
+});
+
+test("every collaboration cover file exists", () => {
+  for (const collaboration of loadCatalog().collaborations) {
+    if (collaboration.cover) {
+      assert.ok(fs.existsSync(collaboration.cover), `missing ${collaboration.cover}`);
+    }
+  }
+});
+
 test("a missing section is rejected", () => {
   fails(sample().replace(/## Social[\s\S]*?(?=## Music)/, ""), /## Social/);
 });
@@ -574,6 +600,10 @@ test("Chinese Dictionary clips are light, fast-start, and clean", () => {
       moov !== -1 && mdat !== -1 && moov < mdat,
       `${piece.video} is not fast-start. Re-encode it with scripts/encode-video.sh.`,
     );
-    assert.equal(buf.includes("\xa9xyz", 0, "latin1"), false, `${piece.video} has a location.`);
+    assert.equal(
+      buf.includes("\xa9xyz", 0, "latin1"),
+      false,
+      `${piece.video} has a location.`,
+    );
   }
 });

@@ -22,8 +22,12 @@ A collaboration is a name, an https link, and any of these notes:
   - role: Director
   - project: Aryk
   - year: 2024
+  - cover: public/images/collabs/ada-song.jpg
+  - player: 1234567890
   - instagram: https://www.instagram.com/ada/
 ```
+
+`cover` is a square picture, about 800 pixels wide, saved in `public/images/collabs/`. `player` is the Bandcamp track number: on the track's Bandcamp page, press Share / Embed and copy the number after `track=`. With a player, the track plays right on the page.
 
 Put the newest collaboration first.
 
@@ -288,10 +292,14 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
   - project: 2 Disrupt
   - role: Written, produced and mixed together
   - year: 2026
+  - cover: public/images/collabs/2-disrupt.jpg
+  - player: 2336086847
 - not/local with Kir: https://notxlocal.bandcamp.com/track/bigtime
   - project: BIGTIME
   - role: Pop/EDM duo
   - year: 2025
+  - cover: public/images/collabs/bigtime.jpg
+  - player: 124533583
   - instagram: https://www.instagram.com/notxlocal/
 
 ## About

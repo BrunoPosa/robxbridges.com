@@ -661,27 +661,105 @@ main {
     0 0 0 2px var(--bone);
 }
 
-.sheet {
-  width: min(40rem, calc(100% - 3rem));
+/* Collaborations: one record per row. The cover sits on the left and the
+   words and player on the right. On a phone they stack. */
+.collabs {
+  width: min(60rem, calc(100% - 4rem));
   margin: 0 auto;
-  padding: 4.5rem 0 5rem;
+  padding: clamp(2.5rem, 6vh, 4.5rem) 0 6rem;
 }
 
-.sheet h1,
-.sheet h2 {
+.collab {
+  display: grid;
+  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: center;
+  padding: clamp(2.5rem, 6vh, 4rem) 0;
+}
+
+.collab + .collab {
+  border-top: 1px solid var(--forest);
+}
+
+/* A row with no cover uses the full width for its words. */
+.collab:not(:has(.collab-cover)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.collab-cover {
+  display: block;
+  aspect-ratio: 1;
+}
+
+.collab-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.collab-text h2 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+  margin: 0 0 0.35rem;
   font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
   font-weight: 300;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
 }
 
-.sheet h1 {
-  margin: 0 0 2rem;
-  font-size: clamp(3.2rem, 8vw, 5.4rem);
-  line-height: 0.95;
+.collab-with {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
 }
 
-.sheet h2 {
-  margin: 3.5rem 0 1rem;
-  font-size: clamp(2rem, 4vw, 2.6rem);
+.collab-role {
+  margin: 0 0 1.4rem;
+  color: var(--taupe);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.collab-player {
+  margin-bottom: 1.2rem;
+}
+
+.collab-links {
+  display: flex;
+  gap: 1.6rem;
+  margin: 0;
+}
+
+.collab-links a {
+  color: var(--taupe);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 200ms ease;
+}
+
+.collab-links a::after {
+  content: " ↗";
+}
+
+.collab-links a:hover {
+  color: var(--bone);
+}
+
+@media (max-width: 720px) {
+  .collabs {
+    width: calc(100% - 2.5rem);
+  }
+
+  .collab {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.6rem;
+  }
 }
 
 .quiet {
@@ -689,78 +767,9 @@ main {
   color: var(--taupe);
 }
 
-.work-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.work-list a {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 1rem 0;
-  border-top: 1px solid var(--forest);
-  color: var(--bone);
-  text-decoration: none;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2rem);
-  line-height: 1.2;
-}
-
-.work-meta {
-  color: var(--taupe);
-  font-family: var(--font-ui);
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-
-.work-list li {
-  position: relative;
-}
-
-.work-list li:last-child {
-  border-bottom: 1px solid var(--forest);
-}
-
-/* The name links to the work. A second link sits at the right of the row. */
-.work-list .work-extra {
-  display: block;
-  position: absolute;
-  top: 1.35rem;
-  right: 0;
-  padding: 0;
-  border: 0;
-  color: var(--taupe);
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.work-list .work-extra::after,
-.work-name::after {
-  content: " ↗";
-  color: var(--taupe);
-  font-size: 0.6em;
-}
-
-.work-list .work-extra:hover {
-  color: var(--bone);
-}
-
-.work-list a:hover {
-  border-top-color: var(--taupe);
-  color: var(--bone);
-}
-
 @media (max-width: 720px) {
   .hero {
     padding: 0 1.25rem 20vh 14vw;
-  }
-
-  .sheet {
-    width: min(40rem, calc(100% - 2.5rem));
   }
 
   .album-page {
@@ -1091,8 +1100,4 @@ main {
     transition: none;
     transform: none;
   }
-}
-
-.work-list li:has(.work-extra) > a:first-child {
-  padding-right: 7rem;
 }

@@ -67,7 +67,7 @@ The clips live on this site, so nothing waits on Instagram. A clip downloads onl
 
 ## Collaborations and about
 
-Collaborations are the bullets under Collaborations in `references/links.md`, newest first. Each one is a name and an https link. `project`, `role`, and `year` are optional indented lines. They show under the name. An indented `instagram` line adds an Instagram link at the right of that row. An empty section leaves one line on the page: selected work with others will be listed here.
+Collaborations are the bullets under Collaborations in `references/links.md`, newest first. Each one is a name and an https link. `project`, `role`, and `year` are optional indented lines. They show under the name. An indented `cover` line (a square picture about 800 pixels wide, saved in `public/images/collabs/`) shows the record beside the words. An indented `player` line, the Bandcamp track number (Share / Embed on the track's Bandcamp page, the number after `track=`), puts a player in that row. An indented `instagram` line adds an Instagram link under it. An empty section leaves one line on the page: selected work with others will be listed here.
 
 The bio is the paragraphs under About. A blank line starts a new paragraph. Those words, and the contact form, sit at the bottom of every page. A photo is one bullet, `Photo: public/images/about.jpg`, and that file has to exist. Until the paragraphs are written, the About heading is there on its own.
 
