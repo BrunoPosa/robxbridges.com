@@ -94,6 +94,13 @@ const year = new Date().getFullYear();
     text-transform: uppercase;
   }
 
+  /* The header stays pinned to the top of the window. When the About link
+     jumps here, stop below it with some breathing room so the heading shows. */
+  #about,
+  #contact {
+    scroll-margin-top: calc(var(--header) + 2.5rem);
+  }
+
   #contact {
     margin-top: 3.5rem;
   }

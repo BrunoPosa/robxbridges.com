@@ -515,23 +515,58 @@ const playing = releases[0];
       show(index + (event.key === "ArrowRight" ? 1 : -1));
     });
 
-    // A sideways touch on the cover changes the release.
-    if (coverFrame instanceof HTMLElement) {
-      let swipe: { x: number; y: number; pointerId: number } | null = null;
+    // A sideways swipe on the cover changes the release, the way photo
+    // carousels work. The CSS rule `touch-action: pan-y` on the cover lets
+    // the browser keep vertical scrolling and hand sideways moves to this
+    // script. The cover follows the finger, and a release changes after a
+    // fifth of the cover's width or a quick flick.
+    if (coverFrame instanceof HTMLElement && coverImg instanceof HTMLImageElement) {
+      let swipe: { x: number; time: number; pointerId: number; dx: number } | null =
+        null;
+
+      const release = (dx: number, commit: boolean) => {
+        coverImg.style.transition = "";
+        coverImg.style.transform = "";
+        if (commit) show(index + (dx < 0 ? 1 : -1));
+      };
+
       coverFrame.addEventListener("pointerdown", (event) => {
-        if (event.pointerType !== "touch") return;
-        swipe = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+        if (event.pointerType !== "touch" || swipe) return;
+        swipe = {
+          x: event.clientX,
+          time: event.timeStamp,
+          pointerId: event.pointerId,
+          dx: 0,
+        };
+        coverFrame.setPointerCapture(event.pointerId);
       });
+
+      coverFrame.addEventListener("pointermove", (event) => {
+        if (!swipe || swipe.pointerId !== event.pointerId) return;
+        swipe.dx = event.clientX - swipe.x;
+        if (reduceMotion) return;
+        // Past the first or last release the cover only gives a little.
+        const target = index + (swipe.dx < 0 ? 1 : -1);
+        const atEdge = target < 0 || target >= releases.length;
+        const shift = atEdge ? swipe.dx * 0.25 : swipe.dx;
+        coverImg.style.transition = "none";
+        coverImg.style.transform = `translateX(${shift}px)`;
+      });
+
       coverFrame.addEventListener("pointerup", (event) => {
         if (!swipe || swipe.pointerId !== event.pointerId) return;
-        const dx = event.clientX - swipe.x;
-        const dy = event.clientY - swipe.y;
+        const { dx } = swipe;
+        const speed = Math.abs(dx) / Math.max(1, event.timeStamp - swipe.time);
         swipe = null;
-        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-        show(index + (dx < 0 ? 1 : -1));
+        const far = Math.abs(dx) > coverFrame.clientWidth * 0.2;
+        const flick = Math.abs(dx) > 24 && speed > 0.35;
+        release(dx, far || flick);
       });
+
+      // The browser took the gesture over (the finger moved up or down).
       coverFrame.addEventListener("pointercancel", () => {
         swipe = null;
+        release(0, false);
       });
     }
   }
