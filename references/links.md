@@ -4,11 +4,12 @@ Edit this file to change the site. One work per bullet, under the heading it bel
 
 A YouTube link can include a start time, written as `t=1744s` in the address. Aryk already has one.
 
-To add a sentence or credits, indent the next line by two spaces, like this:
+To add a year, a description, or credits, indent the next line by two spaces, like this:
 
 ```
 - Aryk!: https://www.youtube.com/watch?v=VIDEO
-  - summary: One sentence about the piece.
+  - year: 2026
+  - summary: A few sentences about the piece.
   - credits: Music by Rob Bridges
 ```
 
@@ -21,7 +22,10 @@ A collaboration is a name, an https link, and any of these notes:
   - role: Director
   - project: Aryk
   - year: 2024
+  - instagram: https://www.instagram.com/ada/
 ```
+
+Put the newest collaboration first.
 
 Write the bio as normal paragraphs under About. A blank line starts a new paragraph. The only bullet there is a photo, and the file has to sit in this project:
 
@@ -29,7 +33,7 @@ Write the bio as normal paragraphs under About. A blank line starts a new paragr
 - Photo: public/images/about.jpg
 ```
 
-The films page plays the YouTube films in this order, one per screen. Scrolling slides the next one up over the current one. Aryk starts at its start time. The Chinese Dictionary pieces come after them. Each one needs the Instagram post link and an indented `poster` line, a still in `public/films/`. The video stays on Instagram. A `credits` line stays hidden until the visitor opens Credits.
+The films page shows the YouTube films in this order, each with a Play button. Nothing plays until the visitor presses Play. Aryk starts at its start time. The year, summary, and credits show under each film. The Chinese Dictionary pieces come after them, as small squares. Under that heading, `Year` and `Summary` lines describe the whole group, and go above the pieces. Each piece needs the Instagram post link and an indented `poster` line, a still in `public/films/`. The video stays on Instagram and opens over the page.
 
 The music page plays every release under Music, in the order written here. Each release is its own heading. Under it, give the Bandcamp link, the player number, and the cover file. A single is just those three lines. An album lists its tracks underneath, in order. A track with a video uses a YouTube link, then an indented `player` line with that track’s Bandcamp number. A track without a video is the title alone, then the same `player` line. `Credit` shows above the player on that release. Cover files should be about 800 pixels on the long side.
 
@@ -38,7 +42,7 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 ## Site
 
 - Name: Rob Bridges
-- Role: Film composer, musician, filmmaker
+- Role: Composer, Sound Designer, Producer, DJ
 - Email: robbridgesmusic@gmail.com
 
 ## Social
@@ -245,12 +249,20 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 ## Films
 
 - Aryk!: https://www.youtube.com/watch?v=N7bynxXfhKI&t=1744s
-- Film Reel: https://www.youtube.com/watch?v=v4UQOVjNgGU
+  - year: 2026
+  - summary: Original jazz score for a short film made for Straight8, where it placed in the Top 8 in 2026. The film went on to screen at Cannes (May 16, 2026), at BFI IMAX (May 23, 2026), and Cambridge Film Festival (October 28, 2026). Follows the story of two boys racing bottlecaps through the canals of Almaty.
 - Apostate: https://www.youtube.com/watch?v=fluSgAKaUnk
+  - year: 2025
+  - summary: Score and sound design for the film, which screened at Kino Konepaja in Helsinki on March 20, 2026. Based in the universe of Dune, the movie tells the story of a Bene Gesserit sister, whose faith will be challenged to the greatest length. Apostate is a psychological visual thriller that explores the destructive blind faith, power struggles, and questions of loyalty that come with following a cause greater than oneself.
 - Smoke With Me: https://www.youtube.com/watch?v=a1Lpj-E_t5Y
+  - year: 2025
+  - summary: Composer and producer of the original song. A goth audio-visual short film telling the ghostly tale of two doomed lovers.
+- Film Reel: https://www.youtube.com/watch?v=v4UQOVjNgGU
 
 ### Chinese Dictionary
 
+- Year: 2022–2025
+- Summary: Composer and sound designer for the projects. ‘Night’ is part of a permanent installation in the Kyra lounge at Hong Kong International Airport.
 - Flow: https://www.instagram.com/p/DGVfSDux34g/
   - poster: public/films/flow.jpg
 - Night: https://www.instagram.com/p/CgjfzfvjmpX/
@@ -266,4 +278,20 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 
 ## Collaborations
 
+- DJ WUF: https://djwuf.bandcamp.com/track/2-disrupt
+  - project: 2 Disrupt
+  - role: Written, produced and mixed together
+  - year: 2026
+- not/local with Kir: https://notxlocal.bandcamp.com/track/bigtime
+  - project: BIGTIME
+  - role: Pop/EDM duo
+  - year: 2025
+  - instagram: https://www.instagram.com/notxlocal/
+
 ## About
+
+Rob Bridges is a Finnish-American composer, sound designer, producer and DJ based in Helsinki. A classical start on cello gave way to jazz on trumpet and guitar, leading to jazz guitar studies at the University of the Arts in Philadelphia. He has worked as a freelance composer and sound designer, with a body of work that spans film scores, installation audio and club-ready electronic music. Alongside his acoustic roots, he brings a love for modular synthesis and electronic production to everything he makes.
+
+His film work includes the original jazz score for Aryk!, which placed in the Top 8 at Straight8 2026 and screened at Cannes Film Festival, BFI IMAX and Cambridge Film Festival. He also scored Apostate, made the audio for a permanent installation at Hong Kong International Airport’s Kyra Lounge (The Chinese Dictionary), and has directed and edited music videos for his own projects and other artists.
+
+Beyond composing and commissioned work, he performs as a DJ and as half of the pop/EDM duo not/local.

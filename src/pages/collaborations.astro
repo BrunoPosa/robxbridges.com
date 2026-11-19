@@ -6,7 +6,9 @@
 //   - role: Director
 //   - project: Aryk
 //   - year: 2024
+//   - instagram: https://www.instagram.com/ada/
 //
+// The newest goes first.
 // Leave ## Collaborations empty until there is a real person to list.
 import Base from "../layouts/Base.astro";
 import { loadCatalog, type Collaboration } from "../data/catalog";
@@ -14,7 +16,7 @@ import { loadCatalog, type Collaboration } from "../data/catalog";
 const { collaborations } = loadCatalog();
 
 function metaLine(collaboration: Collaboration): string {
-  return [collaboration.role, collaboration.project, collaboration.year]
+  return [collaboration.project, collaboration.role, collaboration.year]
     .filter((part) => part)
     .join(" · ");
 }
@@ -35,6 +37,16 @@ function metaLine(collaboration: Collaboration): string {
                 <span class="work-name">{collaboration.name}</span>
                 {meta && <span class="work-meta">{meta}</span>}
               </a>
+              {collaboration.instagram && (
+                <a
+                  class="work-extra"
+                  href={collaboration.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Instagram
+                </a>
+              )}
             </li>
           );
         })}

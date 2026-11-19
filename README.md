@@ -1,4 +1,4 @@
-# robxbridges.com 
+# robxbridges.com
 
 Portfolio site for Rob Bridges. The pages are a static Astro site. The works themselves live in one file: `references/links.md`.
 
@@ -24,6 +24,10 @@ npm run build
 
 `npm test` fails when a line in `references/links.md` is incomplete or points at the wrong kind of page. A film must be a YouTube link. A Chinese Dictionary piece must be an Instagram post. Aryk stays first and keeps a start time.
 
+## Fonts
+
+Two lines at the top of `src/styles/global.css` choose the fonts: `--font-display` for headings and `--font-ui` for everything else. Both are Outfit for now. The big name on the home page is Inter. To try another font, install it from Fontsource (for example `npm install @fontsource/manrope`), import its weights in `src/layouts/Base.astro`, and change those lines.
+
 ## Home picture
 
 `public/images/hero-plate.jpg` and `public/images/hero-foreground.png` are a placeholder still, not a photograph of Rob. The home page draws the name between them, so the letters pass behind the foreground shape.
@@ -34,19 +38,19 @@ To use another picture, replace both files. Keep the same names and the same pix
 
 The music page plays every release under Music in `references/links.md`, in that order. Each release is a heading, then the Bandcamp link, the player number, and the cover file in `public/images/covers/`. A single is just those three lines. An album lists its tracks under them. A track with a video uses a YouTube link and an indented `player` line. A track without a video is the title, then that `player` line. `Credit` shows above the player on that release. A cover should be about 800 pixels on the long side. A much larger file fails `npm test`.
 
-The large cover is the release in view. Bandcamp’s player sits on the right, and on a phone it sits under the cover. The play button on that player starts the music, and the timeline and track times stay in the player. With a mouse or trackpad, the wheel over the cover and the player moves one release at a time. Prev, Next, and the arrow keys do the same. On a phone, a sideways swipe on the cover moves one release. A track with a video has a Video link under the player.
+The large cover is the release in view, with its name above it. Bandcamp’s player sits on the right, joined to the cover by a small gap at any window size, and on a phone it sits under the cover. The play button on that player starts the music, and the timeline and track times stay in the player. The release name inside the player links to its Bandcamp page. Under the cover, Previous, the counter (such as 01 / 20), and Next sit over a row of small covers for every release. The lit one is in view and slides to the middle of the row. Each end of the row fades to dark while there are more covers that way. Choosing a small cover moves to that release. While Bandcamp’s player loads, a dark outline of its track list holds that space, so the list never flashes white. The top of the player is Bandcamp’s own. If it has not loaded after 15 seconds, a Listen on Bandcamp link takes its place. With a mouse or trackpad, scrolling over the large cover moves one release at a time. Anywhere else, the page scrolls as usual. Previous, Next, and the left and right arrow keys also move one release. On a phone, a sideways swipe on the cover moves one release. A track with a video shows its still under the player. Pressing it opens the video over the page.
+
+The small covers are made from the large ones by `scripts/make-thumbs.ts`. It runs by itself before `npm run dev` and `npm run build`, so there is nothing extra to do when you add a cover.
 
 ## Films
 
-The films page plays every YouTube film under Films in `references/links.md`, in that order. Each film fills the screen. Scrolling down slides the next piece up over the current one. Scrolling up uncovers the previous piece. The piece on screen plays. YouTube’s own captions and sound stay on the picture. Aryk stays first and starts at the `t=` time in its link. The bar under the picture shows the title, and a summary when that indented line is there. Sound starts off. One film plays at a time. Marks on the left name each piece. Hovering them shows the titles, and choosing one moves to that piece. While a piece is playing the marks fade out, and they come back when the pointer moves or the screen is touched. They stay hidden once About is on screen. Top, under the header, returns to the first film from anywhere on the page.
+The films page shows every YouTube film under Films in `references/links.md`, in that order. Each film is a still with a Play button, and nothing plays until the visitor presses it. Starting a second film pauses the first. Aryk stays first and starts at the `t=` time in its link. Under each film are its title, then the indented `year`, `summary`, and `credits` lines when they are there, and a YouTube link.
 
-A `credits` line stays hidden until the visitor presses Credits. That opens the words on a dim layer over the picture. Pieces without a credits line have no Credits button.
-
-Chinese Dictionary pieces follow the films. A piece needs an Instagram post link and a `poster` line, such as `public/films/flow.jpg`. The page shows that still in a square. The Instagram embed loads in the square only while that piece is on screen, and the video stays on Instagram. Instagram also stays as a link in the bar.
+Chinese Dictionary pieces follow the films as small squares, three across (two on a phone). The `Year` and `Summary` lines under the Chinese Dictionary heading describe the whole group. A piece needs an Instagram post link and a `poster` line, such as `public/films/flow.jpg`. Pressing a square opens the Instagram video over the page. Close, Escape, or a click outside it closes it.
 
 ## Collaborations and about
 
-Collaborations are the bullets under Collaborations in `references/links.md`. Each one is a name and an https link. `role`, `project`, and `year` are optional indented lines. They show under the name. An empty section leaves one line on the page: selected work with others will be listed here.
+Collaborations are the bullets under Collaborations in `references/links.md`, newest first. Each one is a name and an https link. `project`, `role`, and `year` are optional indented lines. They show under the name. An indented `instagram` line adds an Instagram link at the right of that row. An empty section leaves one line on the page: selected work with others will be listed here.
 
 The bio is the paragraphs under About. A blank line starts a new paragraph. Those words, and the contact form, sit at the bottom of every page. A photo is one bullet, `Photo: public/images/about.jpg`, and that file has to exist. Until the paragraphs are written, the About heading is there on its own.
 

@@ -35,3 +35,6 @@ pnpm-debug.log*
 .idea/
 .grok/cache/
 .grok/history/
+
+# Small cover copies, made by scripts/make-thumbs.ts
+public/images/covers/thumbs/

@@ -258,6 +258,53 @@ test("duplicate titles are rejected", () => {
   );
 });
 
+test("a film year and the Chinese Dictionary group line are kept", () => {
+  const catalog = parseCatalog(
+    sample({
+      films: `- Aryk!: https://www.youtube.com/watch?v=N7bynxXfhKI&t=1744s
+  - year: 2026
+  - summary: Opening piece.`,
+      dictionary: `- Year: 2022–2025
+- Summary: Composer and sound designer.
+- Flow: https://www.instagram.com/p/DGVfSDux34g/
+  - poster: public/films/flow.jpg`,
+    }),
+  );
+  assert.equal(catalog.films[0]?.year, "2026");
+  assert.equal(catalog.dictionaryInfo.year, "2022–2025");
+  assert.equal(catalog.dictionaryInfo.summary, "Composer and sound designer.");
+  assert.equal(catalog.dictionary.length, 1);
+});
+
+test("the Chinese Dictionary group line must come before its pieces", () => {
+  fails(
+    sample({
+      dictionary: `- Flow: https://www.instagram.com/p/DGVfSDux34g/
+  - poster: public/films/flow.jpg
+- Summary: Too late.`,
+    }),
+    /above the first/,
+  );
+});
+
+test("a collaboration may add an Instagram link, and only Instagram", () => {
+  const withInstagram = sample().replace(
+    "  - year: 2024",
+    "  - year: 2024\n  - instagram: https://www.instagram.com/notxlocal/",
+  );
+  assert.equal(
+    parseCatalog(withInstagram).collaborations[0]?.instagram,
+    "https://www.instagram.com/notxlocal/",
+  );
+  fails(
+    sample().replace(
+      "  - year: 2024",
+      "  - year: 2024\n  - instagram: https://example.com/x",
+    ),
+    /Instagram/,
+  );
+});
+
 test("a missing section is rejected", () => {
   fails(sample().replace(/## Social[\s\S]*?(?=## Music)/, ""), /## Social/);
 });

@@ -3,7 +3,9 @@
   --bone: #ece7dc;
   --taupe: #9a9386;
   --forest: #2c3328;
-  --font-display: "Cormorant Garamond", "Times New Roman", serif;
+  /* Fonts live here. Rob may swap in a custom font later: change these two
+     lines and the matching @fontsource imports in src/layouts/Base.astro. */
+  --font-display: "Outfit", "Helvetica Neue", sans-serif;
   --font-ui: "Outfit", "Helvetica Neue", sans-serif;
   --header: 4.5rem;
   color-scheme: dark;
@@ -144,7 +146,34 @@ main {
   text-transform: uppercase;
 }
 
+/* Each title stays on one line. A phone breaks the row between titles. */
+.hero-role-title {
+  white-space: nowrap;
+}
+
+/* The spaces inside the dot are where a phone may break the row. */
+.hero-role-dot {
+  margin: 0 0.4em;
+  color: var(--taupe);
+}
+
+/* Read by screen readers, not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Music. One space value, --music-gap, sits between every block on the page:
+   title, cover, row of covers, counter, player, and videos. */
 .album-page {
+  --music-gap: 1.5rem;
   width: min(68rem, calc(100% - 4rem));
   max-width: 100%;
   margin: 0 auto;
@@ -155,27 +184,41 @@ main {
   padding: clamp(2.5rem, 6vh, 4.5rem) 0 4rem;
 }
 
-.album-page h1 {
-  margin: 0 0 1.25rem;
-  color: var(--taupe);
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 400;
-  letter-spacing: 0.22em;
-  line-height: 1;
-  text-transform: uppercase;
+/* The name of the release in view. One line, so a long name never pushes
+   the cover down. Bandcamp's player shows the full name. */
+.album-title {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 300;
+  line-height: 2rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* The cover side and the player side sit together as one centred pair,
+   always one --music-gap apart, at any window size or zoom. */
 .album {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(17.5rem, 0.8fr);
-  gap: clamp(1.25rem, 2.5vw, 2rem);
-  align-items: start;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--music-gap);
   min-width: 0;
   max-width: 100%;
 }
 
-.album-cover-link {
+/* The title, the cover, and the row of all covers. The cover is never taller
+   than the screen allows, so the row under it stays in view on a laptop. */
+.album-side {
+  display: flex;
+  flex: 0 1 max(18rem, calc(100svh - 22rem));
+  flex-direction: column;
+  gap: var(--music-gap);
+  min-width: 0;
+}
+
+.album-cover-frame {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -184,39 +227,16 @@ main {
   box-shadow: 0 0 0 1px rgba(236, 231, 220, 0.16);
 }
 
+/* The top padding lines the player up with the top of the cover, under
+   the title (2rem tall) and one gap. */
 .album-panel {
   display: flex;
+  flex: none;
   flex-direction: column;
-  min-width: 0;
-}
-
-.album-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0 0 0.7rem;
-}
-
-.album-step {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--taupe);
-  cursor: pointer;
-}
-
-.album-step:hover:not(:disabled) {
-  color: var(--bone);
-}
-
-.album-step:disabled {
-  opacity: 0.35;
-  cursor: default;
+  gap: var(--music-gap);
+  /* The player keeps its width. The cover is the side that gives way. */
+  width: clamp(17.5rem, 38%, 26rem);
+  padding-top: calc(2rem + var(--music-gap));
 }
 
 .album-index {
@@ -266,7 +286,7 @@ main {
 }
 
 .release-credit {
-  margin: 0 0 0.75rem;
+  margin: 0;
   color: var(--taupe);
   font-size: 0.68rem;
   letter-spacing: 0.16em;
@@ -291,11 +311,6 @@ main {
   line-height: 0;
 }
 
-.player-wheel {
-  position: absolute;
-  inset: 0;
-}
-
 .player {
   display: block;
   width: 100%;
@@ -306,11 +321,108 @@ main {
   overscroll-behavior: contain;
 }
 
-.release-videos {
+.player-skeleton,
+.player-error {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* While Bandcamp loads, a dark outline of its track list covers that part
+   of the player, at the same size, so it never flashes white. The top part
+   of the player (120px: artwork, play button, timeline) stays uncovered. */
+.player-skeleton {
+  top: 120px;
+  overflow: hidden;
+  background: #303030;
+}
+
+/* It appears at once, so the old list never shows through, and fades out
+   once the new list is ready. */
+.player-frame:not([data-state="loading"]) .player-skeleton,
+.player-frame[data-rows="0"] .player-skeleton {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 350ms ease;
+}
+
+/* A soft band of light that drifts across, to say "loading". */
+.player-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(236, 231, 220, 0.05) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.8s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-row::before {
+  display: block;
+  border-radius: 2px;
+  background: rgba(236, 231, 220, 0.08);
+}
+
+.skeleton-rows {
+  padding: 0.5rem 0.75rem;
+}
+
+.skeleton-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 1rem;
-  margin: 0.85rem 0 0;
+  align-items: center;
+  height: 33px;
+  border-bottom: 1px solid rgba(236, 231, 220, 0.04);
+}
+
+.skeleton-row::before {
+  content: "";
+  width: 55%;
+  height: 0.5rem;
+}
+
+.skeleton-row:nth-child(even)::before {
+  width: 40%;
+}
+
+/* If Bandcamp never answers, offer its own page instead. */
+.player-error {
+  display: none;
+  place-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 1.5rem;
+  background: #303030;
+  color: var(--taupe);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.player-error a {
+  color: var(--bone);
+}
+
+.player-frame[data-state="error"] .player-error {
+  display: grid;
+}
+
+/* Videos for this release: a still for each, under the player. */
+.release-videos {
+  display: grid;
+  /* Always two across, so a still is never wider than half the player. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 0.9rem;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -319,46 +431,213 @@ main {
   display: none;
 }
 
-.release-videos a {
+.video-card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--taupe);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.video-card-still {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 6px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.video-card-still img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.8;
+  transition:
+    opacity 300ms ease,
+    transform 600ms ease;
+}
+
+.video-card-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0.6rem;
+  border: 1px solid rgba(236, 231, 220, 0.6);
+  border-radius: 50%;
+  background: rgba(8, 7, 6, 0.45);
+  color: var(--bone);
+  transform: translate(-50%, -50%);
+}
+
+.video-card-title {
+  display: block;
+  margin-top: 0.5rem;
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   line-height: 1.4;
-  text-decoration: none;
   text-transform: uppercase;
 }
 
-.release-videos a span {
-  margin-right: 0.45rem;
+.video-card-title::before {
+  content: "Video · ";
 }
 
-.release-videos a:hover {
+.video-card:hover .video-card-still img,
+.video-card:focus-visible .video-card-still img {
+  opacity: 1;
+  transform: scale(1.03);
+}
+
+.video-card:hover {
   color: var(--bone);
 }
 
-/* One line under the counter. Its width is how far through the list you are.
-   The first release is already one step wide. A width transition on load
-   would start from the full column and shrink, so motion waits until the
-   line has painted. */
-.album-progress {
+/* Every release as a small cover. The lit one is in view above. */
+.shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Previous, the counter, Next. Equal outer columns keep the counter centred. */
+.shelf-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+}
+
+.shelf-step[data-step="1"] {
+  justify-self: end;
+}
+
+.shelf-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  color: var(--bone);
+  font: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.shelf-step svg {
+  transition: transform 250ms ease;
+}
+
+.shelf-step[data-step="1"]:hover:not(:disabled) svg {
+  transform: translateX(3px);
+}
+
+.shelf-step[data-step="-1"]:hover:not(:disabled) svg {
+  transform: translateX(-3px);
+}
+
+.shelf-step:disabled {
+  color: var(--taupe);
+  opacity: 0.4;
+  cursor: default;
+}
+
+.shelf-row {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.35rem 0.2rem;
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-width: none;
+  /* Each edge fades to dark while there are more covers that way. The script
+     sets is-start and is-end, so the first and last covers are never dimmed. */
+  --fade-left: 3rem;
+  --fade-right: 3rem;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--fade-left),
+    #000 calc(100% - var(--fade-right)),
+    transparent
+  );
+  transition:
+    --fade-left 300ms ease,
+    --fade-right 300ms ease;
+}
+
+.shelf-row.is-start {
+  --fade-left: 0rem;
+}
+
+.shelf-row.is-end {
+  --fade-right: 0rem;
+}
+
+/* Lets the fade lengths ease instead of snapping. */
+@property --fade-left {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 3rem;
+}
+
+@property --fade-right {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 3rem;
+}
+
+.shelf-row::-webkit-scrollbar {
+  display: none;
+}
+
+.shelf-row li {
   flex: none;
-  width: 100%;
-  max-width: 100%;
-  height: 1px;
-  margin: 0 0 1.15rem;
-  overflow: hidden;
 }
 
-.album-progress-bar {
+.shelf-item {
   display: block;
-  width: calc(100% / var(--count, 20));
-  height: 100%;
-  max-width: 100%;
-  background: var(--bone);
+  width: 3.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  opacity: 0.42;
+  transition:
+    opacity 250ms ease,
+    transform 250ms ease;
 }
 
-.album-progress-bar.is-ready {
-  transition: width 320ms ease;
+.shelf-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 4px;
+}
+
+.shelf-item:hover {
+  opacity: 0.85;
+  transform: translateY(-2px);
+}
+
+.shelf-item[aria-current="true"] {
+  opacity: 1;
+  box-shadow:
+    0 0 0 1px var(--black),
+    0 0 0 2px var(--bone);
 }
 
 .sheet {
@@ -370,7 +649,7 @@ main {
 .sheet h1,
 .sheet h2 {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 300;
 }
 
 .sheet h1 {
@@ -415,8 +694,38 @@ main {
   line-height: 1.4;
 }
 
-.work-list li:last-child a {
+.work-list li {
+  position: relative;
+}
+
+.work-list li:last-child {
   border-bottom: 1px solid var(--forest);
+}
+
+/* The name links to the work. A second link sits at the right of the row. */
+.work-list .work-extra {
+  display: block;
+  position: absolute;
+  top: 1.35rem;
+  right: 0;
+  padding: 0;
+  border: 0;
+  color: var(--taupe);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.work-list .work-extra::after,
+.work-name::after {
+  content: " ↗";
+  color: var(--taupe);
+  font-size: 0.6em;
+}
+
+.work-list .work-extra:hover {
+  color: var(--bone);
 }
 
 .work-list a:hover {
@@ -440,482 +749,336 @@ main {
     padding-top: 2rem;
   }
 
-  .album-page h1 {
-    margin-bottom: 1.15rem;
+  .album-page {
+    --music-gap: 1.25rem;
+  }
+
+  .album-title {
+    font-size: 1.25rem;
     text-align: center;
   }
 
   .album {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    gap: 1.25rem;
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .album-cover-link {
-    width: min(18rem, 78%);
+  .album-side {
+    flex: none;
+  }
+
+  .album-cover-frame {
+    width: 100%;
   }
 
   .album-panel {
-    width: 100%;
+    width: auto;
+    padding-top: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .album-cover,
-  .album-progress-bar,
-  .album-progress-bar.is-ready {
+  .player-skeleton::after {
+    animation: none;
+  }
+
+  .player-skeleton,
+  .shelf-row,
+  .album-cover {
     transition: none;
   }
 }
 
-/* Films: one piece per screen. The header stays put, so each screen is the
-   space under it. About and contact follow the last piece.
-   The films script moves one piece at a time. Mandatory snap on these sticky
-   slides traps a backward scroll on the current piece, so it stays off. */
-html:has(.reel) {
-  scroll-snap-type: none;
-  scroll-padding-top: var(--header-live, var(--header));
+/* Films: a quiet column. Each film is a still with Play, then its words.
+   Nothing plays until the visitor presses Play. */
+.films {
+  width: min(52rem, calc(100% - 4rem));
+  margin: 0 auto;
+  padding: clamp(2.5rem, 6vh, 4.5rem) 0 6rem;
 }
 
-html:has(.reel) .site-footer {
-  position: relative;
-  z-index: 2;
-  scroll-snap-align: start;
-  background: var(--black);
-}
-
-.reel {
-  position: relative;
-}
-
-.reel-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.film-top {
-  position: fixed;
-  z-index: 5;
-  /* Below YouTube's top row, where captions and sound sit. */
-  top: calc(var(--header-live, var(--header)) + 4.75rem);
-  right: 1.25rem;
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--forest);
-  background: rgba(8, 7, 6, 0.72);
+.page-label {
+  margin: 0 0 1.75rem;
   color: var(--taupe);
-  font: inherit;
+  font-family: var(--font-ui);
   font-size: 0.72rem;
-  letter-spacing: 0.16em;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  line-height: 1;
   text-transform: uppercase;
-  cursor: pointer;
 }
 
-.film-top:hover {
-  color: var(--bone);
+.film + .film,
+.dictionary {
+  margin-top: clamp(5rem, 12vh, 8rem);
 }
 
-.film-rail {
-  position: fixed;
-  z-index: 5;
-  top: 50%;
-  left: 1.35rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  transform: translateY(-50%);
-  opacity: 1;
-  transition:
-    opacity 0.55s ease,
-    transform 0.55s ease;
-}
-
-/* Hidden while a film is playing, and while About is on screen.
-   A keyboard user can still tab to the marks; focus brings them back. */
-.film-rail.is-quiet {
-  opacity: 0;
-  transform: translateY(-50%) translateX(-0.65rem);
-  pointer-events: none;
-}
-
-.film-rail.is-quiet:focus-within {
-  opacity: 1;
-  transform: translateY(-50%);
-  pointer-events: auto;
-}
-
-.film-rail-item {
+.film-frame {
   position: relative;
-  display: flex;
-  align-items: center;
-  height: 0.7rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--taupe);
-  cursor: pointer;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
 }
 
-.film-rail:focus-within .film-rail-item,
-.film-rail.is-open .film-rail-item {
-  padding-right: 12rem;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .film-rail:hover .film-rail-item {
-    padding-right: 12rem;
-  }
-}
-
-.film-rail-line {
+.film-poster,
+.film-frame iframe {
   display: block;
-  width: 0.55rem;
-  height: 1px;
-  background: currentColor;
-  transition:
-    width 0.45s ease,
-    background-color 0.45s ease;
-}
-
-.film-rail-item[aria-current="true"] {
-  color: var(--bone);
-}
-
-.film-rail-item[aria-current="true"] .film-rail-line {
-  width: 1.7rem;
-}
-
-.film-rail-name {
-  position: absolute;
-  left: 2.15rem;
-  color: var(--taupe);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateX(-0.3rem);
-  transition:
-    opacity 0.4s ease,
-    transform 0.4s ease,
-    color 0.4s ease;
-}
-
-.film-rail:focus-within .film-rail-name,
-.film-rail.is-open .film-rail-name {
-  pointer-events: auto;
-  opacity: 1;
-  transform: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .film-rail:hover .film-rail-name {
-    pointer-events: auto;
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.film-rail-item[aria-current="true"] .film-rail-name {
-  color: var(--bone);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .film-rail,
-  .film-rail-line,
-  .film-rail-name {
-    transition: none;
-  }
-
-  .film-slide {
-    position: relative;
-    top: auto;
-  }
-}
-
-.film-slide {
-  position: sticky;
-  top: var(--header-live, var(--header));
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  height: calc(100dvh - var(--header-live, var(--header)));
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  background: var(--black);
-}
-
-.film-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  background: var(--black);
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
 }
 
 .film-poster {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  transition:
+    opacity 400ms ease,
+    transform 900ms ease;
+  opacity: 0.86;
 }
 
-.film-embed {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: min(
-    28rem,
-    calc(100% - 2rem),
-    calc(100dvh - var(--header-live, var(--header)) - 12rem)
-  );
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  background: var(--black);
-}
-
-.film-embed-still,
-.film-embed-frame {
-  position: absolute;
-  inset: 0;
-}
-
-.film-embed-still {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.film-embed-frame {
-  z-index: 1;
-  overflow: hidden;
-  opacity: 0;
-}
-
-.film-slide.is-playing .film-embed-frame {
+.film-frame:hover .film-poster {
   opacity: 1;
+  transform: scale(1.012);
 }
 
-.film-embed .film-play {
-  z-index: 2;
-}
-
+/* The whole still is the button, with a small round mark in the middle. */
 .film-play {
   position: absolute;
-  z-index: 2;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 0.75rem 1.4rem;
-  border: 1px solid var(--taupe);
-  background: rgba(8, 7, 6, 0.55);
-  color: var(--bone);
-  font: inherit;
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.film-play[hidden],
-.film-slide.is-playing .film-play {
-  display: none;
-}
-
-.film-player {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-}
-
-.film-slide.is-playing .film-player {
-  opacity: 1;
-}
-
-.film-player iframe,
-.film-frame,
-.film-embed-frame iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: transparent;
-}
-
-/* YouTube's own buttons stay clickable.
-   Captions and sound are on the top row, the timeline is on the bottom,
-   and play sits in the middle. The even-odd cutout is that play button. */
-.film-scroll {
-  position: absolute;
-  z-index: 1;
-  top: 5.5rem;
-  right: 0;
-  bottom: 8rem;
-  left: 0;
-  pointer-events: none;
-  clip-path: polygon(
-    evenodd,
-    0 0,
-    100% 0,
-    100% 100%,
-    0 100%,
-    0 0,
-    calc(50% - 4.25rem) calc(50% - 4.25rem),
-    calc(50% - 4.25rem) calc(50% + 4.25rem),
-    calc(50% + 4.25rem) calc(50% + 4.25rem),
-    calc(50% + 4.25rem) calc(50% - 4.25rem),
-    calc(50% - 4.25rem) calc(50% - 4.25rem)
-  );
-}
-
-.film-slide.is-playing .film-scroll {
-  pointer-events: auto;
-}
-
-.film-copy .film-kicker {
-  margin: 0 0 0.25rem;
-  color: var(--taupe);
-  font-size: 0.72rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.film-credits-overlay {
-  position: absolute;
-  z-index: 6;
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 1.5rem;
-  background: rgba(8, 7, 6, 0.72);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bone);
+  cursor: pointer;
 }
 
-.film-credits-overlay[hidden] {
-  display: none;
+.film-play svg,
+.dictionary-play {
+  box-sizing: content-box;
+  padding: 1.1rem;
+  border: 1px solid rgba(236, 231, 220, 0.55);
+  border-radius: 50%;
+  background: rgba(8, 7, 6, 0.42);
+  backdrop-filter: blur(4px);
+  transition:
+    background 250ms ease,
+    border-color 250ms ease;
 }
 
-.film-credits-card {
-  width: min(34rem, 100%);
-  max-height: 70%;
-  overflow: auto;
-  padding: 1.35rem 1.45rem 1.15rem;
-  border: 1px solid var(--forest);
-  background: rgba(8, 7, 6, 0.92);
+.film-play:hover svg,
+.film-play:focus-visible svg,
+.dictionary-tile:hover .dictionary-play {
+  border-color: var(--bone);
+  background: rgba(8, 7, 6, 0.65);
 }
 
-.film-credits-card h3 {
-  margin: 0 0 0.75rem;
+.film-text {
+  max-width: 40rem;
+  margin-top: 1.4rem;
+}
+
+.dictionary > .film-text {
+  margin-top: 0;
+}
+
+.film-text h2 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+  margin: 0 0 0.6rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 1.9rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.film-year {
+  color: var(--taupe);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+}
+
+.film-text p {
+  margin: 0 0 0.8rem;
+  color: rgba(236, 231, 220, 0.82);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.film-text .film-credits {
+  color: var(--taupe);
+  font-size: 0.85rem;
+}
+
+.film-link {
+  color: var(--taupe);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.film-link::after {
+  content: " ↗";
+}
+
+.film-link:hover {
+  color: var(--bone);
+}
+
+/* Chinese Dictionary: small squares, three across, so all six sit in two rows. */
+.dictionary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.75rem 1.25rem;
+  margin: 1.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dictionary-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bone);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dictionary-tile img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  opacity: 0.86;
+  transition: opacity 400ms ease;
+}
+
+.dictionary-tile:hover img {
+  opacity: 1;
+}
+
+/* In the corner, so it does not cover the character on each still. */
+.dictionary-play {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: grid;
+  place-items: center;
+  padding: 0.5rem;
+}
+
+.dictionary-title {
+  display: block;
+  margin-top: 0.6rem;
   color: var(--taupe);
   font-size: 0.72rem;
-  font-weight: 400;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-.film-credits-card p {
-  margin: 0;
+.dictionary-tile:hover .dictionary-title {
   color: var(--bone);
-  font-size: 1.05rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
 }
 
-.film-caption {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 0.35rem 1.25rem;
-  align-items: end;
-  padding: 0.85rem 8vw 1rem;
-  border-top: 1px solid var(--forest);
-}
-
-.film-index,
-.film-copy p,
-.film-actions a,
-.film-sound,
-.film-credits,
-.film-credits-close {
-  color: var(--taupe);
-}
-
-.film-index {
-  margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-}
-
-.film-copy h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  font-weight: 500;
-  line-height: 1.05;
-}
-
-.film-copy p {
-  margin: 0.15rem 0 0;
-  font-size: 0.95rem;
-}
-
-.film-actions {
-  display: flex;
-  gap: 1.1rem;
-  align-items: center;
-}
-
-.film-sound,
-.film-credits,
-.film-credits-close,
-.film-actions a {
+/* The viewer that opens over the page (src/components/VideoDialog.astro). */
+.video-dialog {
+  width: min(64rem, calc(100vw - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
   padding: 0;
   border: 0;
   background: transparent;
+  color: var(--bone);
+}
+
+.video-dialog[data-shape="tall"] {
+  width: min(26rem, calc(100vw - 2rem));
+}
+
+.video-dialog::backdrop {
+  background: rgba(8, 7, 6, 0.9);
+}
+
+.video-dialog-frame {
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.video-dialog[data-shape="tall"] .video-dialog-frame {
+  aspect-ratio: auto;
+  height: min(44rem, calc(100dvh - 6rem));
+  background: #fff;
+}
+
+.video-dialog-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.video-dialog-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.5rem;
+  padding: 0.85rem 0 0;
+}
+
+.video-dialog-bar a,
+.video-dialog-close {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--taupe);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-decoration: none;
   text-transform: uppercase;
   cursor: pointer;
 }
 
-.film-credits-close {
-  margin-top: 1.1rem;
+.video-dialog-bar a::after {
+  content: " ↗";
 }
 
-.film-sound:hover,
-.film-credits:hover,
-.film-credits-close:hover,
-.film-actions a:hover,
-.film-sound[aria-pressed="true"],
-.film-credits[aria-expanded="true"] {
+.video-dialog-bar a:hover,
+.video-dialog-close:hover {
   color: var(--bone);
 }
 
 @media (max-width: 720px) {
-  .film-caption {
-    grid-template-columns: auto 1fr;
-    padding: 0.75rem 1.25rem 0.85rem;
+  .films {
+    width: calc(100% - 2.5rem);
+    padding-top: 2rem;
   }
 
-  .film-actions {
-    grid-column: 1 / -1;
+  .dictionary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.4rem 1rem;
   }
+}
 
-  .film-top {
-    top: calc(var(--header-live, var(--header)) + 8rem);
-    right: 1rem;
+@media (prefers-reduced-motion: reduce) {
+  .film-poster,
+  .film-frame:hover .film-poster {
+    transition: none;
+    transform: none;
   }
+}
 
-  .film-rail {
-    left: 0.85rem;
-    gap: 0.42rem;
-  }
+.work-list li:has(.work-extra) > a:first-child {
+  padding-right: 7rem;
 }

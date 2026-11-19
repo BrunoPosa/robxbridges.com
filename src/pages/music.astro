@@ -3,7 +3,11 @@
 // The cover on the left is the release in view. The card on the right is
 // Bandcamp's own player, so the first click starts the music and the timeline
 // stays visible. The wheel, over this block, moves to the next release.
+// The row of small covers under it shows every release, so it is clear there
+// is more after the first. Small cover copies are made by scripts/make-thumbs.ts.
+// Tracks with a YouTube link show a still under the player that opens the video.
 import Base from "../layouts/Base.astro";
+import VideoDialog from "../components/VideoDialog.astro";
 import { loadCatalog, publicSrc, type Album } from "../data/catalog";
 
 type ReleaseData = {
@@ -12,8 +16,10 @@ type ReleaseData = {
   cover: string;
   src: string;
   height: number;
+  // Track rows in Bandcamp's list. The loading placeholder draws the same number.
+  rows: number;
   credit?: string;
-  videos: { title: string; url: string }[];
+  videos: { title: string; url: string; youtubeId: string }[];
 };
 
 const catalog = loadCatalog();
@@ -27,7 +33,7 @@ function playerSrc(album: Album): string {
   const id =
     album.kind === "track" ? `track=${album.playerId}` : `album=${album.playerId}`;
   const tracklist = album.kind === "album" && album.tracks.length > 1;
-  return `https://bandcamp.com/EmbeddedPlayer/${id}/size=large/bgcol=${playerBg}/linkcol=ece7dc/tracklist=${tracklist}/artwork=small/transparent=true/`;
+  return `https://bandcamp.com/EmbeddedPlayer/${id}/size=large/bgcol=${playerBg}/linkcol=ece7dc/tracklist=${tracklist}/artwork=none/transparent=true/`;
 }
 
 // The transport is about 120px and each track row is about 32px. The extra
@@ -40,7 +46,9 @@ function playerHeight(album: Album): number {
 
 const releases: ReleaseData[] = albums.map((album) => {
   const videos = album.tracks.flatMap((track) =>
-    track.url ? [{ title: track.title, url: track.url }] : [],
+    track.url && track.youtubeId
+      ? [{ title: track.title, url: track.url, youtubeId: track.youtubeId }]
+      : [],
   );
   return {
     title: album.title,
@@ -48,10 +56,16 @@ const releases: ReleaseData[] = albums.map((album) => {
     cover: publicSrc(album.cover),
     src: playerSrc(album),
     height: playerHeight(album),
+    rows: album.kind === "album" && album.tracks.length > 1 ? album.tracks.length : 0,
     ...(album.credit ? { credit: album.credit } : {}),
     videos,
   };
 });
+
+// The small copy of a cover, made by scripts/make-thumbs.ts.
+function thumbSrc(cover: string): string {
+  return cover.replace(/\/([^/]+)$/, "/thumbs/$1");
+}
 
 const releaseJson = JSON.stringify(releases).replace(/</g, "\\u003c");
 const playing = releases[0];
@@ -59,7 +73,7 @@ const playing = releases[0];
 
 <Base title="Music">
   <article class="album-page">
-    <h1>Music</h1>
+    <h1 class="visually-hidden">Music</h1>
     {playing && (
       <div
         class="album"
@@ -68,74 +82,109 @@ const playing = releases[0];
         aria-roledescription="carousel"
         aria-label="Albums"
       >
-        <a
-          class="album-cover-link"
-          href={playing.url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            class="album-cover"
-            src={playing.cover}
-            alt={`${playing.title} cover`}
-            width="800"
-            height="800"
-            decoding="async"
-            fetchpriority="high"
-          />
-        </a>
-        <div class="album-panel">
-          <div class="album-nav">
-            <button
-              type="button"
-              class="album-step"
-              data-step="-1"
-              aria-label="Previous release"
-              disabled
-            >
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                <path
-                  d="M10.5 3.5 5.5 8l5 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1"
-                />
-              </svg>
-            </button>
-            <p class="album-index">
-              <span class="album-index-current">01</span>
-              <span class="album-index-total">
-                {String(releases.length).padStart(2, "0")}
-              </span>
-            </p>
-            <button
-              type="button"
-              class="album-step"
-              data-step="1"
-              aria-label="Next release"
-              disabled={releases.length < 2}
-            >
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                <path
-                  d="M5.5 3.5 10.5 8l-5 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1"
-                />
-              </svg>
-            </button>
-          </div>
-          <!-- How far through the list this release is. First is 1 of N, last fills the column. -->
-          <div class="album-progress" aria-hidden="true">
-            <span
-              class="album-progress-bar"
-              style={`--count:${releases.length};width:${(100 / releases.length).toFixed(4)}%`}
+        <div class="album-side">
+          <h2 class="album-title">{playing.title}</h2>
+          <div class="album-cover-frame">
+            <img
+              class="album-cover"
+              src={playing.cover}
+              alt={`${playing.title} cover`}
+              width="800"
+              height="800"
+              decoding="async"
+              fetchpriority="high"
             />
           </div>
+          {releases.length > 1 && (
+            <nav class="shelf" aria-label="All releases">
+              <div class="shelf-head">
+                <button type="button" class="shelf-step" data-step="-1" disabled>
+                  <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                    <path
+                      d="M10.5 3.5 5.5 8l5 4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                  Previous
+                </button>
+                <p class="album-index">
+                  <span class="album-index-current">01</span>
+                  <span class="album-index-total">
+                    {String(releases.length).padStart(2, "0")}
+                  </span>
+                </p>
+                <button type="button" class="shelf-step" data-step="1">
+                  Next
+                  <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                    <path
+                      d="M5.5 3.5 10.5 8l-5 4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <ol class="shelf-row is-start">
+                {releases.map((release, index) => (
+                  <li>
+                    <button
+                      type="button"
+                      class="shelf-item"
+                      data-index={index}
+                      aria-current={index === 0 ? "true" : undefined}
+                      title={release.title}
+                    >
+                      <img
+                        src={thumbSrc(release.cover)}
+                        alt={release.title}
+                        width="160"
+                        height="160"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          )}
+        </div>
+        <div class="album-panel">
           <p class="release-credit" hidden={!playing.credit}>
             {playing.credit}
           </p>
-          <div class="player-frame">
+          <!-- data-state is loading, ready, or error. The script sets it. -->
+          <div class="player-frame" data-state="loading" data-rows={playing.rows}>
+            <!-- Covers only the track list. Bandcamp draws its top part (artwork,
+                 play button, timeline) cleanly, but its track list flashes white. -->
+            <div class="player-skeleton" aria-hidden="true">
+              <div class="skeleton-rows">
+                {Array.from({ length: playing.rows }, () => (
+                  <span class="skeleton-row" />
+                ))}
+              </div>
+            </div>
+            <p class="player-error">
+              The player did not load.
+              <a href={playing.url} target="_blank" rel="noopener noreferrer">
+                Listen on Bandcamp
+              </a>
+            </p>
+            <script is:inline>
+              // Bandcamp may say its player is ready before the page script
+              // below starts. Remember it here so the placeholder still lifts.
+              addEventListener("message", (event) => {
+                if (
+                  event.origin === "https://bandcamp.com" &&
+                  event.data === "playerinited"
+                ) {
+                  document.documentElement.dataset.bandcampReady = "true";
+                }
+              });
+            </script>
             <iframe
               class="player"
               title={`${playing.title} on Bandcamp`}
@@ -145,21 +194,29 @@ const playing = releases[0];
               allow="autoplay; encrypted-media"
             />
           </div>
-          <ul class="release-videos" hidden={playing.videos.length === 0}>
-            {playing.videos.map((video) => (
-              <li>
-                <a href={video.url} target="_blank" rel="noopener noreferrer">
-                  <span>Video</span>
-                  {video.title}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <ul class="release-videos" hidden></ul>
           <p class="album-live" aria-live="polite" />
         </div>
       </div>
     )}
   </article>
+  <!-- One video card. The script copies it for each video on the release in view. -->
+  <template id="video-card">
+    <li>
+      <button type="button" class="video-card" data-dialog-shape="wide">
+        <span class="video-card-still">
+          <img alt="" width="320" height="180" loading="lazy" decoding="async" />
+          <span class="video-card-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="12" height="12">
+              <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" />
+            </svg>
+          </span>
+        </span>
+        <span class="video-card-title"></span>
+      </button>
+    </li>
+  </template>
+  <VideoDialog />
   <script type="application/json" id="release-data" set:html={releaseJson} />
 </Base>
 
@@ -170,21 +227,26 @@ const playing = releases[0];
     cover: string;
     src: string;
     height: number;
+    rows: number;
     credit?: string;
-    videos: { title: string; url: string }[];
+    videos: { title: string; url: string; youtubeId: string }[];
   };
 
   const album = document.querySelector(".album");
-  const coverLink = document.querySelector(".album-cover-link");
+  const coverFrame = document.querySelector<HTMLElement>(".album-cover-frame");
+  const albumTitle = document.querySelector(".album-title");
   const coverImg = document.querySelector(".album-cover");
   const frame = document.querySelector(".player");
   const indexLabel = document.querySelector(".album-index-current");
-  const progressBar = document.querySelector(".album-progress-bar");
   const credit = document.querySelector(".release-credit");
   const videos = document.querySelector(".release-videos");
   const live = document.querySelector(".album-live");
-  const prevButton = document.querySelector('.album-step[data-step="-1"]');
-  const nextButton = document.querySelector('.album-step[data-step="1"]');
+  const shelfRow = document.querySelector(".shelf-row");
+  const shelfItems = document.querySelectorAll<HTMLButtonElement>(".shelf-item");
+  const shelfSteps = document.querySelectorAll<HTMLButtonElement>(".shelf-step");
+  const playerFrame = document.querySelector<HTMLElement>(".player-frame");
+  const skeletonRows = document.querySelector(".skeleton-rows");
+  const errorLink = document.querySelector<HTMLAnchorElement>(".player-error a");
   const dataEl = document.getElementById("release-data");
   const releases: ReleaseData[] = dataEl?.textContent
     ? (JSON.parse(dataEl.textContent) as ReleaseData[])
@@ -213,10 +275,8 @@ const playing = releases[0];
     img.src = src;
   }
 
-  function setCover(src: string, alt: string, url: string): void {
-    if (!(coverLink instanceof HTMLAnchorElement)) return;
+  function setCover(src: string, alt: string): void {
     if (!(coverImg instanceof HTMLImageElement)) return;
-    coverLink.href = url;
     coverImg.alt = alt;
     if (coverImg.getAttribute("src") === src) return;
 
@@ -260,19 +320,90 @@ const playing = releases[0];
     if (!(videos instanceof HTMLElement)) return;
     videos.replaceChildren();
     videos.hidden = items.length === 0;
+    // Copy the first card from the page, then change its video.
+    const template = document.querySelector<HTMLTemplateElement>("#video-card");
     for (const video of items) {
-      const item = document.createElement("li");
-      const link = document.createElement("a");
-      link.href = video.url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      const tag = document.createElement("span");
-      tag.textContent = "Video";
-      link.append(tag, video.title);
-      item.append(link);
-      videos.append(item);
+      const card = template?.content.firstElementChild?.cloneNode(true);
+      if (!(card instanceof HTMLElement)) return;
+      const button = card.querySelector<HTMLButtonElement>(".video-card");
+      const still = card.querySelector("img");
+      const title = card.querySelector(".video-card-title");
+      if (!button || !still || !title) return;
+      button.dataset.dialogSrc = `https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0&playsinline=1`;
+      button.dataset.dialogTitle = video.title;
+      button.dataset.dialogLink = video.url;
+      still.src = `https://i.ytimg.com/vi/${video.youtubeId}/mqdefault.jpg`;
+      title.textContent = video.title;
+      videos.append(card);
     }
   }
+
+  // The current cover in the row is lit, and the row slides so it sits in
+  // the middle. Positions are measured against the row itself, because the
+  // page margin around the row differs between a phone and a computer.
+  function showShelf(at: number): void {
+    shelfItems.forEach((item, itemIndex) => {
+      if (itemIndex === at) item.setAttribute("aria-current", "true");
+      else item.removeAttribute("aria-current");
+    });
+    const current = shelfItems[at];
+    if (shelfRow instanceof HTMLElement && current) {
+      const row = shelfRow.getBoundingClientRect();
+      const item = current.getBoundingClientRect();
+      const centre = shelfRow.scrollLeft + item.left - row.left + item.width / 2;
+      const most = shelfRow.scrollWidth - shelfRow.clientWidth;
+      const left = Math.min(most, Math.max(0, centre - shelfRow.clientWidth / 2));
+      shelfRow.scrollTo({ left, behavior: reduceMotion ? "auto" : "smooth" });
+    }
+    for (const step of shelfSteps) {
+      const target = at + Number(step.dataset.step);
+      step.disabled = target < 0 || target >= releases.length;
+    }
+  }
+
+  // The Bandcamp player paints nothing useful while it loads, so a dark
+  // placeholder of the same size stands in. Bandcamp tells this page
+  // "playerinited" when its player is drawn. If that never comes, the page
+  // offers the Bandcamp link instead.
+  let playerToken = 0;
+  let playerTimer = 0;
+
+  function setPlayerState(state: "loading" | "ready" | "error"): void {
+    if (playerFrame) playerFrame.dataset.state = state;
+  }
+
+  function loadPlayer(release: ReleaseData): void {
+    const token = ++playerToken;
+    setPlayerState("loading");
+    // A single has no track list, so it gets no placeholder.
+    if (playerFrame) playerFrame.dataset.rows = String(release.rows);
+    if (skeletonRows) {
+      skeletonRows.replaceChildren(
+        ...Array.from({ length: release.rows }, () => {
+          const row = document.createElement("span");
+          row.className = "skeleton-row";
+          return row;
+        }),
+      );
+    }
+    if (errorLink) errorLink.href = release.url;
+    window.clearTimeout(playerTimer);
+    playerTimer = window.setTimeout(() => {
+      if (token === playerToken) setPlayerState("error");
+    }, 15000);
+  }
+
+  function playerReady(): void {
+    window.clearTimeout(playerTimer);
+    setPlayerState("ready");
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== "https://bandcamp.com") return;
+    if (!(frame instanceof HTMLIFrameElement)) return;
+    if (event.source !== frame.contentWindow || event.data !== "playerinited") return;
+    playerReady();
+  });
 
   function show(next: number): void {
     if (next < 0 || next >= releases.length || next === index) return;
@@ -280,26 +411,22 @@ const playing = releases[0];
     const release = releases[next];
     if (!release) return;
 
-    setCover(release.cover, `${release.title} cover`, release.url);
+    setCover(release.cover, `${release.title} cover`);
+    if (albumTitle) albumTitle.textContent = release.title;
     if (frame instanceof HTMLIFrameElement && frame.src !== release.src) {
+      loadPlayer(release);
       frame.src = release.src;
       frame.title = `${release.title} on Bandcamp`;
       frame.style.height = `${release.height}px`;
       frame.height = String(release.height);
     }
-    if (progressBar instanceof HTMLElement) {
-      progressBar.style.width = `${((next + 1) / releases.length) * 100}%`;
-    }
     if (indexLabel) indexLabel.textContent = String(next + 1).padStart(2, "0");
-    if (prevButton instanceof HTMLButtonElement) prevButton.disabled = next === 0;
-    if (nextButton instanceof HTMLButtonElement) {
-      nextButton.disabled = next === releases.length - 1;
-    }
     if (credit instanceof HTMLElement) {
       credit.textContent = release.credit ?? "";
       credit.hidden = !release.credit;
     }
     showVideos(release.videos);
+    showShelf(next);
     preload(next - 1);
     preload(next + 1);
     if (live && announced) {
@@ -338,59 +465,47 @@ const playing = releases[0];
   }
 
   if (album instanceof HTMLElement && releases.length > 0) {
-    // The line is already one step wide. Allow it to ease only after that paints.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (progressBar instanceof HTMLElement) progressBar.classList.add("is-ready");
-      });
-    });
-
     if (coverImg instanceof HTMLImageElement) {
       const initial = coverImg.getAttribute("src") || "";
       if (coverImg.complete && coverImg.naturalWidth > 0) remember(initial);
       else coverImg.addEventListener("load", () => remember(initial), { once: true });
     }
     preload(1);
+    showVideos(releases[0]?.videos ?? []);
+    if (releases[0]) loadPlayer(releases[0]);
+    if (document.documentElement.dataset.bandcampReady) playerReady();
+    // A backup in case Bandcamp ever stops sending its message: once the
+    // frame has loaded, lift the placeholder after a short wait.
+    frame?.addEventListener("load", () => {
+      const token = playerToken;
+      window.setTimeout(() => {
+        if (token === playerToken && playerFrame?.dataset.state === "loading") {
+          playerReady();
+        }
+      }, 2000);
+    });
 
-    album.addEventListener("wheel", onWheel, { passive: false });
-    // The Bandcamp frame keeps wheel events to itself. A clear layer over it
-    // lets a resting pointer change the release. Moving the pointer lifts the
-    // layer for a moment so a click still reaches play, the timeline, and a track.
-    if (finePointer && frame instanceof HTMLIFrameElement && frame.parentElement) {
-      const catcher = document.createElement("div");
-      catcher.className = "player-wheel";
-      catcher.setAttribute("aria-hidden", "true");
-      frame.parentElement.append(catcher);
-      catcher.addEventListener(
-        "wheel",
-        (event) => {
-          onWheel(event);
-          event.stopPropagation();
-        },
-        { passive: false },
-      );
-      let restore = 0;
-      const stepAside = () => {
-        catcher.style.pointerEvents = "none";
-        window.clearTimeout(restore);
-        restore = window.setTimeout(() => {
-          catcher.style.pointerEvents = "";
-        }, 1400);
-      };
-      catcher.addEventListener("pointermove", stepAside);
-      catcher.addEventListener("pointerrawupdate", stepAside);
-      frame.parentElement.addEventListener("pointerleave", () => {
-        window.clearTimeout(restore);
-        catcher.style.pointerEvents = "";
-      });
+    // With a mouse or trackpad, scrolling over the big cover moves between
+    // releases. Anywhere else, the page scrolls as usual.
+    coverFrame?.addEventListener("wheel", onWheel, { passive: false });
+
+    for (const item of shelfItems) {
+      item.addEventListener("click", () => show(Number(item.dataset.index)));
+    }
+    for (const step of shelfSteps) {
+      step.addEventListener("click", () => show(index + Number(step.dataset.step)));
     }
 
-    for (const button of album.querySelectorAll<HTMLButtonElement>(".album-step")) {
-      button.addEventListener("click", () => {
-        const step = Number(button.dataset.step);
-        if (!Number.isFinite(step)) return;
-        show(index + step);
-      });
+    // Fade an edge of the row only while more covers sit past it.
+    if (shelfRow instanceof HTMLElement) {
+      const updateFades = () => {
+        const most = shelfRow.scrollWidth - shelfRow.clientWidth;
+        shelfRow.classList.toggle("is-start", shelfRow.scrollLeft <= 1);
+        shelfRow.classList.toggle("is-end", shelfRow.scrollLeft >= most - 1);
+      };
+      shelfRow.addEventListener("scroll", updateFades, { passive: true });
+      window.addEventListener("resize", updateFades);
+      updateFades();
     }
 
     album.addEventListener("keydown", (event) => {
@@ -400,30 +515,23 @@ const playing = releases[0];
       show(index + (event.key === "ArrowRight" ? 1 : -1));
     });
 
-    // A sideways touch on the cover changes the release. A tap still opens it.
-    if (coverLink instanceof HTMLElement) {
+    // A sideways touch on the cover changes the release.
+    if (coverFrame instanceof HTMLElement) {
       let swipe: { x: number; y: number; pointerId: number } | null = null;
-      let suppressClick = false;
-      coverLink.addEventListener("pointerdown", (event) => {
+      coverFrame.addEventListener("pointerdown", (event) => {
         if (event.pointerType !== "touch") return;
         swipe = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
       });
-      coverLink.addEventListener("pointerup", (event) => {
+      coverFrame.addEventListener("pointerup", (event) => {
         if (!swipe || swipe.pointerId !== event.pointerId) return;
         const dx = event.clientX - swipe.x;
         const dy = event.clientY - swipe.y;
         swipe = null;
         if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-        suppressClick = true;
         show(index + (dx < 0 ? 1 : -1));
       });
-      coverLink.addEventListener("pointercancel", () => {
+      coverFrame.addEventListener("pointercancel", () => {
         swipe = null;
-      });
-      coverLink.addEventListener("click", (event) => {
-        if (!suppressClick) return;
-        event.preventDefault();
-        suppressClick = false;
       });
     }
   }

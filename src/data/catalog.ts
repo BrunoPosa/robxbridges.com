@@ -39,6 +39,7 @@ export type Film = {
   url: string;
   youtubeId: string;
   startSeconds: number | null;
+  year?: string;
   summary?: string;
   credits?: string;
 };
@@ -58,6 +59,7 @@ export type Collaboration = {
   role?: string;
   project?: string;
   year?: string;
+  instagram?: string;
 };
 
 export type Catalog = {
@@ -71,6 +73,8 @@ export type Catalog = {
   music: { bandcamp: string; spotify: string; albums: Album[] };
   films: Film[];
   dictionary: DictionaryPiece[];
+  // One line about the whole Chinese Dictionary group, shown above its pieces.
+  dictionaryInfo: { year?: string; summary?: string };
   collaborations: Collaboration[];
   about: string;
   aboutPhoto?: string;
@@ -161,6 +165,7 @@ const CatalogShape = z.object({
         url: httpsUrl,
         youtubeId: z.string().regex(YOUTUBE_ID),
         startSeconds: z.number().int().nonnegative().nullable(),
+        year: z.string().min(1).optional(),
         summary: z.string().min(1).optional(),
         credits: z.string().min(1).optional(),
       }),
@@ -177,6 +182,10 @@ const CatalogShape = z.object({
       }),
     )
     .min(1, "Add at least one Chinese Dictionary piece."),
+  dictionaryInfo: z.object({
+    year: z.string().min(1).optional(),
+    summary: z.string().min(1).optional(),
+  }),
   collaborations: z.array(
     z.object({
       name: z.string().min(1),
@@ -184,6 +193,7 @@ const CatalogShape = z.object({
       role: z.string().min(1).optional(),
       project: z.string().min(1).optional(),
       year: z.string().min(1).optional(),
+      instagram: httpsUrl.optional(),
     }),
   ),
   about: z.string(),
@@ -236,6 +246,19 @@ export function assertInstagramPost(url: string): void {
   const host = parsed.hostname.replace(/^www\./, "");
   if (host !== "instagram.com" || !/^\/p\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname)) {
     throw new CatalogError(`Expected an Instagram post link: ${url}`);
+  }
+}
+
+// A profile or post on Instagram, used beside a collaboration.
+function assertInstagram(url: string): void {
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    // Reported below with the same message as a wrong site.
+  }
+  if (host !== "instagram.com") {
+    throw new CatalogError(`Expected an Instagram link: ${url}`);
   }
 }
 
@@ -463,6 +486,7 @@ export function parseCatalog(source: string): Catalog {
     draft = null;
   }
   const dictionary: DictionaryPiece[] = [];
+  const dictionaryInfo: { year?: string; summary?: string } = {};
   const collaborations: Collaboration[] = [];
   const aboutLines: string[] = [];
   let aboutPhoto: string | undefined;
@@ -622,8 +646,9 @@ export function parseCatalog(source: string): Catalog {
     if (bullet.indent > 0) {
       if (!last) fail(lineNo, "this note needs a work bullet directly above it.");
       if (last.kind === "film") {
-        const value = noteValue(bullet, ["summary", "credits"], lineNo);
-        if (bullet.label === "summary") last.item.summary = value;
+        const value = noteValue(bullet, ["year", "summary", "credits"], lineNo);
+        if (bullet.label === "year") last.item.year = value;
+        else if (bullet.label === "summary") last.item.summary = value;
         else last.item.credits = value;
       } else if (last.kind === "dictionary") {
         const value = noteValue(bullet, ["summary", "credits", "poster"], lineNo);
@@ -633,8 +658,22 @@ export function parseCatalog(source: string): Catalog {
           if (last.item.poster) fail(lineNo, "poster is already set.");
           last.item.poster = posterFile(value, lineNo);
         }
+      } else if (bullet.label === "instagram") {
+        if (bullet.indent < 2) fail(lineNo, "indent notes with two spaces.");
+        if (!bullet.isUrl) fail(lineNo, "instagram needs an https link.");
+        try {
+          assertInstagram(bullet.value);
+        } catch (error) {
+          if (error instanceof CatalogError) fail(lineNo, error.message);
+          throw error;
+        }
+        last.item.instagram = bullet.value;
       } else {
-        const value = noteValue(bullet, ["role", "project", "year"], lineNo);
+        const value = noteValue(
+          bullet,
+          ["role", "project", "year", "instagram"],
+          lineNo,
+        );
         if (bullet.label === "role") last.item.role = value;
         else if (bullet.label === "project") last.item.project = value;
         else last.item.year = value;
@@ -686,6 +725,16 @@ export function parseCatalog(source: string): Catalog {
     }
 
     if (section === "films" && filmGroup === "dictionary") {
+      // "Year:" and "Summary:" describe the whole group. They come before the pieces.
+      if (!bullet.isUrl && (bullet.label === "Year" || bullet.label === "Summary")) {
+        if (dictionary.length > 0) {
+          fail(lineNo, `put ${bullet.label} above the first Chinese Dictionary piece.`);
+        }
+        if (!bullet.value) fail(lineNo, `${bullet.label} is empty.`);
+        if (bullet.label === "Year") dictionaryInfo.year = bullet.value;
+        else dictionaryInfo.summary = bullet.value;
+        continue;
+      }
       if (!bullet.isUrl)
         fail(lineNo, "a Chinese Dictionary piece needs an Instagram link.");
       try {
@@ -782,6 +831,7 @@ export function parseCatalog(source: string): Catalog {
     },
     films,
     dictionary,
+    dictionaryInfo,
     collaborations,
     about,
     ...(aboutPhoto ? { aboutPhoto } : {}),

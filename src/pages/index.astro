@@ -10,6 +10,11 @@ import { loadCatalog } from "../data/catalog";
 const catalog = loadCatalog();
 const [first, ...rest] = catalog.site.name.split(" ");
 const second = rest.join(" ");
+// "Composer, Sound Designer, Producer, DJ" shows as separate titles.
+const roles = catalog.site.role
+  .split(",")
+  .map((role) => role.trim())
+  .filter(Boolean);
 ---
 
 <Base title={catalog.site.name} overlayNav>
@@ -36,6 +41,18 @@ const second = rest.join(" ");
       width="1280"
       height="720"
     />
-    <p class="hero-role">{catalog.site.role}</p>
+    <p class="hero-role">
+      {roles.map((role, index) => (
+        <>
+          {index > 0 && (
+            <span class="hero-role-dot" aria-hidden="true">
+              {" "}
+              ·{" "}
+            </span>
+          )}
+          <span class="hero-role-title">{role}</span>
+        </>
+      ))}
+    </p>
   </section>
 </Base>
