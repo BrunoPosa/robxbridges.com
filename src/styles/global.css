@@ -419,9 +419,10 @@ main {
 /* Videos for this release: a still for each, under the player. */
 .release-videos {
   display: grid;
-  /* Always two across, so a still is never wider than half the player. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem 0.9rem;
+  /* Three across on a computer, so the stills stay small next to the
+     cover and the player at any window width. Phones use two (see below). */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -469,7 +470,7 @@ main {
   left: 50%;
   display: grid;
   place-items: center;
-  padding: 0.6rem;
+  padding: 0.45rem;
   border: 1px solid rgba(236, 231, 220, 0.6);
   border-radius: 50%;
   background: rgba(8, 7, 6, 0.45);
@@ -774,6 +775,12 @@ main {
   .album-panel {
     width: auto;
     padding-top: 0;
+  }
+
+  /* On a phone the cover fills the width, so two stills across balance it. */
+  .release-videos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 0.9rem;
   }
 }
 
