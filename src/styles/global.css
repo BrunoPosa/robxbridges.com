@@ -141,9 +141,14 @@ main {
   z-index: 3;
   margin: 1.2rem 0 0;
   color: var(--bone);
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
+  /* Two shadows: a tight one for crisp edges, a wide one that darkens the
+     photo just behind the words so they read on light or busy areas. */
+  text-shadow:
+    0 1px 2px rgba(8, 7, 6, 0.85),
+    0 0 18px rgba(8, 7, 6, 0.75);
 }
 
 /* Each title stays on one line. A phone breaks the row between titles. */
@@ -154,7 +159,8 @@ main {
 /* The spaces inside the dot are where a phone may break the row. */
 .hero-role-dot {
   margin: 0 0.4em;
-  color: var(--taupe);
+  color: var(--bone);
+  opacity: 0.7;
 }
 
 /* Read by screen readers, not shown. */
@@ -804,17 +810,6 @@ main {
   padding: clamp(2.5rem, 6vh, 4.5rem) 0 6rem;
 }
 
-.page-label {
-  margin: 0 0 1.75rem;
-  color: var(--taupe);
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 400;
-  letter-spacing: 0.22em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
 .film + .film,
 .dictionary {
   margin-top: clamp(5rem, 12vh, 8rem);
@@ -962,6 +957,10 @@ main {
   cursor: pointer;
 }
 
+.dictionary-tile picture {
+  display: block;
+}
+
 .dictionary-tile img {
   display: block;
   width: 100%;
@@ -1000,8 +999,11 @@ main {
 }
 
 /* The viewer that opens over the page (src/components/VideoDialog.astro). */
+/* --ratio is the video's width / height, set when it opens. The viewer is as
+   wide as fits the screen without the video getting taller than the window. */
 .video-dialog {
-  width: min(64rem, calc(100vw - 2rem));
+  --ratio: 1.7778;
+  width: min(64rem, calc(100vw - 2rem), calc((100dvh - 6rem) * var(--ratio)));
   max-width: none;
   max-height: calc(100dvh - 2rem);
   padding: 0;
@@ -1010,26 +1012,17 @@ main {
   color: var(--bone);
 }
 
-.video-dialog[data-shape="tall"] {
-  width: min(26rem, calc(100vw - 2rem));
-}
-
 .video-dialog::backdrop {
   background: rgba(8, 7, 6, 0.9);
 }
 
 .video-dialog-frame {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--ratio);
   background: #000;
 }
 
-.video-dialog[data-shape="tall"] .video-dialog-frame {
-  aspect-ratio: auto;
-  height: min(44rem, calc(100dvh - 6rem));
-  background: #fff;
-}
-
-.video-dialog-frame iframe {
+.video-dialog-frame iframe,
+.video-dialog-frame video {
   display: block;
   width: 100%;
   height: 100%;

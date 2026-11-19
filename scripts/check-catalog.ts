@@ -56,7 +56,8 @@ ${
 ${
   parts?.dictionary ??
   `- Flow: https://www.instagram.com/p/DGVfSDux34g/
-  - poster: public/films/flow.jpg`
+  - poster: public/films/flow.jpg
+  - video: public/films/flow.mp4`
 }
 
 ## Collaborations
@@ -107,6 +108,7 @@ test("the works file matches the rules", () => {
     assert.match(piece.url, /^https:\/\/www\.instagram\.com\/p\/[A-Za-z0-9_-]+\/?$/);
     assert.match(piece.poster ?? "", /^public\/films\/[a-z0-9-]+\.jpg$/);
     assert.equal(fs.existsSync(piece.poster), true);
+    assert.match(piece.video, /^public\/films\/[a-z0-9-]+\.mp4$/);
   }
 
   const luna = catalog.music.albums[0];
@@ -248,6 +250,27 @@ test("a dictionary poster must be a still in public/films", () => {
   );
 });
 
+test("a dictionary piece needs a video", () => {
+  fails(
+    sample({
+      dictionary: `- Flow: https://www.instagram.com/p/DGVfSDux34g/
+  - poster: public/films/flow.jpg`,
+    }),
+    /needs a video/,
+  );
+});
+
+test("a dictionary video must be an MP4 in public/films", () => {
+  fails(
+    sample({
+      dictionary: `- Flow: https://www.instagram.com/p/DGVfSDux34g/
+  - poster: public/films/flow.jpg
+  - video: public/films/flow.mov`,
+    }),
+    /video needs a path/,
+  );
+});
+
 test("duplicate titles are rejected", () => {
   fails(
     sample({
@@ -267,7 +290,8 @@ test("a film year and the Chinese Dictionary group line are kept", () => {
       dictionary: `- Year: 2022–2025
 - Summary: Composer and sound designer.
 - Flow: https://www.instagram.com/p/DGVfSDux34g/
-  - poster: public/films/flow.jpg`,
+  - poster: public/films/flow.jpg
+  - video: public/films/flow.mp4`,
     }),
   );
   assert.equal(catalog.films[0]?.year, "2026");
@@ -281,6 +305,7 @@ test("the Chinese Dictionary group line must come before its pieces", () => {
     sample({
       dictionary: `- Flow: https://www.instagram.com/p/DGVfSDux34g/
   - poster: public/films/flow.jpg
+  - video: public/films/flow.mp4
 - Summary: Too late.`,
     }),
     /above the first/,
@@ -499,4 +524,56 @@ test("public images carry no location, email, or content credentials", () => {
     if (reasons.length > 0) offenders.push(`${file} (${reasons.join(", ")})`);
   }
   assert.deepEqual(offenders, []);
+});
+
+// The top-level boxes of an MP4, in file order (e.g. ftyp, moov, mdat).
+function mp4Boxes(buf: Buffer): string[] {
+  const names: string[] = [];
+  let offset = 0;
+  while (offset + 8 <= buf.length) {
+    let size = buf.readUInt32BE(offset);
+    const name = buf.toString("latin1", offset + 4, offset + 8);
+    if (size === 1) size = Number(buf.readBigUInt64BE(offset + 8));
+    else if (size === 0) size = buf.length - offset;
+    if (size < 8) break;
+    names.push(name);
+    offset += size;
+  }
+  return names;
+}
+
+// The clip length in seconds, from the mvhd box inside moov.
+function mp4Seconds(buf: Buffer): number {
+  const at = buf.indexOf("mvhd", 0, "latin1");
+  if (at === -1) return 0;
+  const version = buf.readUInt8(at + 4);
+  if (version === 1) {
+    return Number(buf.readBigUInt64BE(at + 28)) / buf.readUInt32BE(at + 24);
+  }
+  return buf.readUInt32BE(at + 20) / buf.readUInt32BE(at + 16);
+}
+
+// Each clip must exist, start playing before it has fully downloaded
+// ("fast start": the moov index comes before the mdat video data), stream
+// smoothly on a normal connection (2.6 Mbps or less), stay under 25 MB, and
+// carry no phone location. scripts/encode-video.sh does all of this.
+test("Chinese Dictionary clips are light, fast-start, and clean", () => {
+  for (const piece of loadCatalog().dictionary) {
+    const buf = fs.readFileSync(piece.video);
+    assert.ok(buf.length <= 25 * 1024 * 1024, `${piece.video} is over 25 MB.`);
+    const megabits = (buf.length * 8) / 1_000_000 / mp4Seconds(buf);
+    assert.ok(
+      megabits <= 2.6,
+      `${piece.video} is ${megabits.toFixed(1)} Mbps, over 2.6. Make it with scripts/encode-video.sh.`,
+    );
+    const boxes = mp4Boxes(buf);
+    assert.equal(boxes[0], "ftyp", `${piece.video} is not an MP4.`);
+    const moov = boxes.indexOf("moov");
+    const mdat = boxes.indexOf("mdat");
+    assert.ok(
+      moov !== -1 && mdat !== -1 && moov < mdat,
+      `${piece.video} is not fast-start. Re-encode it with scripts/encode-video.sh.`,
+    );
+    assert.equal(buf.includes("\xa9xyz", 0, "latin1"), false, `${piece.video} has a location.`);
+  }
 });

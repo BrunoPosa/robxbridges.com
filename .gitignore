@@ -38,3 +38,6 @@ pnpm-debug.log*
 
 # Small cover copies, made by scripts/make-thumbs.ts
 public/images/covers/thumbs/
+
+# WebP stills for the films page, made by scripts/make-thumbs.ts
+public/films/posters/

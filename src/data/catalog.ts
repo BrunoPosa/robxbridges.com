@@ -47,8 +47,10 @@ export type Film = {
 export type DictionaryPiece = {
   title: string;
   url: string;
-  // A still in public/films. The video itself stays on Instagram.
+  // A still in public/films, shown before the video plays.
   poster: string;
+  // The clip itself, an MP4 in public/films (made by scripts/encode-video.sh).
+  video: string;
   summary?: string;
   credits?: string;
 };
@@ -177,6 +179,7 @@ const CatalogShape = z.object({
         title: z.string().min(1),
         url: httpsUrl,
         poster: z.string().regex(/^public\/films\/[a-z0-9-]+\.jpg$/),
+        video: z.string().regex(/^public\/films\/[a-z0-9-]+\.mp4$/),
         summary: z.string().min(1).optional(),
         credits: z.string().min(1).optional(),
       }),
@@ -316,11 +319,20 @@ function localFile(value: string, lineNo: number, field: string): string {
   return value;
 }
 
-// The still for a Chinese Dictionary piece. The video stays on Instagram.
+// The still for a Chinese Dictionary piece.
 function posterFile(value: string, lineNo: number): string {
   const filePath = localFile(value, lineNo, "poster");
   if (!/^public\/films\/[a-z0-9-]+\.jpg$/.test(filePath)) {
     fail(lineNo, "poster needs a path like public/films/flow.jpg.");
+  }
+  return filePath;
+}
+
+// The clip for a Chinese Dictionary piece.
+function videoFile(value: string, lineNo: number): string {
+  const filePath = localFile(value, lineNo, "video");
+  if (!/^public\/films\/[a-z0-9-]+\.mp4$/.test(filePath)) {
+    fail(lineNo, "video needs a path like public/films/flow.mp4.");
   }
   return filePath;
 }
@@ -651,10 +663,13 @@ export function parseCatalog(source: string): Catalog {
         else if (bullet.label === "summary") last.item.summary = value;
         else last.item.credits = value;
       } else if (last.kind === "dictionary") {
-        const value = noteValue(bullet, ["summary", "credits", "poster"], lineNo);
+        const value = noteValue(bullet, ["summary", "credits", "poster", "video"], lineNo);
         if (bullet.label === "summary") last.item.summary = value;
         else if (bullet.label === "credits") last.item.credits = value;
-        else {
+        else if (bullet.label === "video") {
+          if (last.item.video) fail(lineNo, "video is already set.");
+          last.item.video = videoFile(value, lineNo);
+        } else {
           if (last.item.poster) fail(lineNo, "poster is already set.");
           last.item.poster = posterFile(value, lineNo);
         }
@@ -747,6 +762,7 @@ export function parseCatalog(source: string): Catalog {
         title: bullet.label,
         url: bullet.value,
         poster: "",
+        video: "",
       };
       dictionary.push(piece);
       last = { kind: "dictionary", item: piece };
@@ -813,6 +829,11 @@ export function parseCatalog(source: string): Catalog {
     if (!piece.poster) {
       throw new CatalogError(
         `"${piece.title}" needs a still. Under that piece, add a line: poster: public/films/name.jpg`,
+      );
+    }
+    if (!piece.video) {
+      throw new CatalogError(
+        `"${piece.title}" needs a video. Under that piece, add a line: video: public/films/name.mp4`,
       );
     }
   }
@@ -884,6 +905,11 @@ export function loadCatalog(root = process.cwd()): Catalog {
     if (!fs.existsSync(path.join(root, piece.poster))) {
       throw new CatalogError(
         `references/links.md — poster file not found: ${piece.poster}`,
+      );
+    }
+    if (!fs.existsSync(path.join(root, piece.video))) {
+      throw new CatalogError(
+        `references/links.md — video file not found: ${piece.video}. Make it with scripts/encode-video.sh.`,
       );
     }
   }

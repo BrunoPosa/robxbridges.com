@@ -33,7 +33,7 @@ Write the bio as normal paragraphs under About. A blank line starts a new paragr
 - Photo: public/images/about.jpg
 ```
 
-The films page shows the YouTube films in this order, each with a Play button. Nothing plays until the visitor presses Play. Aryk starts at its start time. The year, summary, and credits show under each film. The Chinese Dictionary pieces come after them, as small squares. Under that heading, `Year` and `Summary` lines describe the whole group, and go above the pieces. Each piece needs the Instagram post link and an indented `poster` line, a still in `public/films/`. The video stays on Instagram and opens over the page.
+The films page shows the YouTube films in this order, each with a Play button. Nothing plays until the visitor presses Play. Aryk starts at its start time. The year, summary, and credits show under each film. The Chinese Dictionary pieces come after them, as small squares. Under that heading, `Year` and `Summary` lines describe the whole group, and go above the pieces. Each piece needs the Instagram post link, an indented `poster` line (a still in `public/films/`), and an indented `video` line (the clip in `public/films/`, made with `scripts/encode-video.sh`, see the README). Pressing a piece plays the clip over the page. The Instagram link shows under it.
 
 The music page plays every release under Music, in the order written here. Each release is its own heading. Under it, give the Bandcamp link, the player number, and the cover file. A single is just those three lines. An album lists its tracks underneath, in order. A track with a video uses a YouTube link, then an indented `player` line with that track’s Bandcamp number. A track without a video is the title alone, then the same `player` line. `Credit` shows above the player on that release. Cover files should be about 800 pixels on the long side.
 
@@ -265,16 +265,22 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 - Summary: Composer and sound designer for the projects. ‘Night’ is part of a permanent installation in the Kyra lounge at Hong Kong International Airport.
 - Flow: https://www.instagram.com/p/DGVfSDux34g/
   - poster: public/films/flow.jpg
+  - video: public/films/flow.mp4
 - Night: https://www.instagram.com/p/CgjfzfvjmpX/
   - poster: public/films/night.jpg
+  - video: public/films/night.mp4
 - Speed: https://www.instagram.com/p/CrYoACvOI96/
   - poster: public/films/speed.jpg
+  - video: public/films/speed.mp4
 - Tank: https://www.instagram.com/p/Cgea6y6DIAI/
   - poster: public/films/tank.jpg
+  - video: public/films/tank.mp4
 - Moon: https://www.instagram.com/p/CdDihS3jLqC/
   - poster: public/films/moon.jpg
+  - video: public/films/moon.mp4
 - Lost: https://www.instagram.com/p/Cb-SmhYjwwt/
   - poster: public/films/lost.jpg
+  - video: public/films/lost.mp4
 
 ## Collaborations
 

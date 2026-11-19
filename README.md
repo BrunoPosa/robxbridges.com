@@ -22,7 +22,7 @@ npm test
 npm run build
 ```
 
-`npm test` fails when a line in `references/links.md` is incomplete or points at the wrong kind of page. A film must be a YouTube link. A Chinese Dictionary piece must be an Instagram post. Aryk stays first and keeps a start time.
+`npm test` fails when a line in `references/links.md` is incomplete or points at the wrong kind of page. A film must be a YouTube link. A Chinese Dictionary piece must be an Instagram post with a still and a clip. Aryk stays first and keeps a start time.
 
 ## Fonts
 
@@ -46,7 +46,24 @@ The small covers are made from the large ones by `scripts/make-thumbs.ts`. It ru
 
 The films page shows every YouTube film under Films in `references/links.md`, in that order. Each film is a still with a Play button, and nothing plays until the visitor presses it. Starting a second film pauses the first. Aryk stays first and starts at the `t=` time in its link. Under each film are its title, then the indented `year`, `summary`, and `credits` lines when they are there, and a YouTube link.
 
-Chinese Dictionary pieces follow the films as small squares, three across (two on a phone). The `Year` and `Summary` lines under the Chinese Dictionary heading describe the whole group. A piece needs an Instagram post link and a `poster` line, such as `public/films/flow.jpg`. Pressing a square opens the Instagram video over the page. Close, Escape, or a click outside it closes it.
+Chinese Dictionary pieces follow the films as small squares, three across (two on a phone). The `Year` and `Summary` lines under the Chinese Dictionary heading describe the whole group. A piece needs an Instagram post link, a `poster` line such as `public/films/flow.jpg`, and a `video` line such as `public/films/flow.mp4`. Pressing a square plays the clip over the page at once, with an Instagram link under it. Close, Escape, or a click outside it closes it.
+
+The clips live on this site, so nothing waits on Instagram. A clip downloads only when someone presses its square.
+
+### Add or replace a clip
+
+1. Install ffmpeg once (Mac: `brew install ffmpeg`, Ubuntu: `sudo apt install ffmpeg`).
+2. Run `scripts/encode-video.sh path/to/original.mov flow` (any video file works; `flow` is the short name).
+3. That makes `public/films/flow.mp4`, about 2–6 MB, and a still `public/films/flow.jpg` if there isn't one yet. Swap in a nicer still any time, but keep it the same shape as the clip.
+4. Add the piece to `references/links.md`:
+
+   ```
+   - Flow: https://www.instagram.com/p/DGVfSDux34g/
+     - poster: public/films/flow.jpg
+     - video: public/films/flow.mp4
+   ```
+
+`npm test` fails if a clip is missing, too heavy to stream smoothly (over 2.6 Mbps or 25 MB), or not made with the script.
 
 ## Collaborations and about
 

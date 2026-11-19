@@ -60,16 +60,59 @@ const links = [
   }
 
   nav a {
+    position: relative;
     color: var(--taupe);
     font-size: 0.72rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     text-decoration: none;
+    transition: color 0.25s ease, opacity 0.25s ease;
+  }
+
+  /* A thin line that draws in from the centre on hover. */
+  nav a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0.16em; /* skip the trailing letter-spacing so the line stays centred */
+    bottom: -0.35em;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
   }
 
   nav a[aria-current="page"],
   nav a:hover {
     color: var(--bone);
+  }
+
+  nav a:hover::after,
+  nav a:focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  /* Home page: links sit on the photo, so start them bright with a soft
+     shadow for contrast, and dim the others slightly while one is hovered. */
+  .site-header.overlay .wordmark,
+  .site-header.overlay nav a {
+    color: var(--bone);
+    text-shadow: 0 1px 8px rgba(8, 7, 6, 0.7);
+  }
+
+  .site-header.overlay nav a::after {
+    box-shadow: 0 1px 6px rgba(8, 7, 6, 0.6);
+  }
+
+  .site-header.overlay nav:hover a:not(:hover) {
+    opacity: 0.6;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    nav a,
+    nav a::after {
+      transition: none;
+    }
   }
 
   .site-header.overlay {

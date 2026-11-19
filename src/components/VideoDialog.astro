@@ -1,11 +1,15 @@
 ---
 // One viewer for videos that open over the page.
-// Any button with data-dialog-src opens it:
-//   data-dialog-src    the embed address (YouTube or Instagram)
-//   data-dialog-title  words for screen readers
-//   data-dialog-link   optional, the page to open the video on its own site
-//   data-dialog-shape  "wide" for YouTube, "tall" for Instagram
-// Closing the viewer removes the player, so the sound stops.
+// Any button with data-dialog-src or data-dialog-video opens it:
+//   data-dialog-src     a YouTube embed address (plays in YouTube's player)
+//   data-dialog-video   a clip on this site, e.g. /films/flow.mp4 (plays in
+//                       the browser's own player, starting at once)
+//   data-dialog-poster  optional, the still shown while the clip loads
+//   data-dialog-ratio   optional, width / height of the clip, e.g. 0.5625
+//   data-dialog-title   words for screen readers
+//   data-dialog-link    optional, the page to open the video on its own site
+// Nothing downloads until the button is pressed. Closing the viewer removes
+// the player, so the sound and the download stop.
 ---
 
 <dialog class="video-dialog" aria-label="Video">
@@ -23,17 +27,39 @@
   const holder = dialog?.querySelector<HTMLElement>(".video-dialog-frame");
   const link = dialog?.querySelector<HTMLAnchorElement>(".video-dialog-link");
 
-  function open(trigger: HTMLElement): void {
-    const src = trigger.dataset.dialogSrc;
-    if (!dialog || !holder || !src) return;
+  function youtubePlayer(src: string, title: string): HTMLIFrameElement {
     const frame = document.createElement("iframe");
     frame.src = src;
-    frame.title = trigger.dataset.dialogTitle ?? "Video";
+    frame.title = title;
     frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
     frame.allowFullscreen = true;
-    holder.replaceChildren(frame);
-    dialog.dataset.shape = trigger.dataset.dialogShape ?? "wide";
-    dialog.setAttribute("aria-label", frame.title);
+    return frame;
+  }
+
+  function clipPlayer(src: string, title: string, poster?: string): HTMLVideoElement {
+    const video = document.createElement("video");
+    video.src = src;
+    video.title = title;
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    if (poster) video.poster = poster;
+    return video;
+  }
+
+  function open(trigger: HTMLElement): void {
+    const { dialogSrc, dialogVideo, dialogPoster, dialogRatio } = trigger.dataset;
+    if (!dialog || !holder || !(dialogSrc || dialogVideo)) return;
+    const title = trigger.dataset.dialogTitle ?? "Video";
+
+    const player = dialogVideo
+      ? clipPlayer(dialogVideo, title, dialogPoster)
+      : youtubePlayer(dialogSrc ?? "", title);
+    holder.replaceChildren(player);
+
+    // The clip's shape is known before it loads, so the frame never jumps.
+    dialog.style.setProperty("--ratio", dialogRatio ?? String(16 / 9));
+    dialog.setAttribute("aria-label", title);
     if (link) {
       const href = trigger.dataset.dialogLink ?? "";
       link.hidden = !href;
@@ -41,14 +67,27 @@
       link.textContent = href.includes("instagram.com") ? "Instagram" : "YouTube";
     }
     dialog.showModal();
+
+    if (player instanceof HTMLVideoElement) {
+      // Tell the page a clip started, so it can pause any other video.
+      document.dispatchEvent(new CustomEvent("video-dialog:play"));
+      // Pressing the square counts as permission to play with sound. If a
+      // browser still refuses, the visitor sees the Play control.
+      player.play().catch(() => {});
+    }
   }
 
   // Buttons can be added later (the music page swaps them per release),
   // so one listener on the page handles them all.
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
-    const trigger = target?.closest<HTMLElement>("[data-dialog-src]");
+    const trigger = target?.closest<HTMLElement>("[data-dialog-src], [data-dialog-video]");
     if (trigger) open(trigger);
+  });
+
+  // Switching to another tab pauses the clip.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) holder?.querySelector("video")?.pause();
   });
 
   dialog?.querySelector(".video-dialog-close")?.addEventListener("click", () => {
@@ -58,5 +97,14 @@
   dialog?.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });
-  dialog?.addEventListener("close", () => holder?.replaceChildren());
+  dialog?.addEventListener("close", () => {
+    // Emptying the source stops a clip's download, not just its sound.
+    const video = holder?.querySelector("video");
+    if (video) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+    holder?.replaceChildren();
+  });
 </script>

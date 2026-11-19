@@ -2,23 +2,30 @@
 // Films come from references/links.md, in that order. Keep Aryk first.
 // Each film shows its still with a Play button. Nothing plays until the
 // visitor presses Play. The year, summary, and credits sit under the picture.
-// Chinese Dictionary pieces are small squares. Pressing one opens the
-// Instagram video in a viewer over the page.
+// Chinese Dictionary pieces are small squares. Pressing one plays its clip
+// (hosted on this site) in a viewer over the page. Nothing downloads before.
+import sharp from "sharp";
 import Base from "../layouts/Base.astro";
 import VideoDialog from "../components/VideoDialog.astro";
 import { loadCatalog, publicSrc } from "../data/catalog";
 
 const { films, dictionary, dictionaryInfo } = loadCatalog();
 
-function instagramEmbed(url: string): string {
-  const code = new URL(url).pathname.split("/").filter(Boolean)[1] ?? "";
-  return `https://www.instagram.com/p/${code}/embed/`;
-}
+// Each still's width / height. The still has the clip's shape, so the viewer
+// can size itself before the clip loads.
+const pieces = await Promise.all(
+  dictionary.map(async (piece) => {
+    const { width = 1, height = 1 } = await sharp(piece.poster).metadata();
+    // The WebP copies made by scripts/make-thumbs.ts.
+    const webp = publicSrc(piece.poster).replace(/^\/films\/(.+)\.jpg$/, "/films/posters/$1");
+    return { ...piece, ratio: (width / height).toFixed(4), webp };
+  }),
+);
 ---
 
 <Base title="Films">
   <article class="films">
-    <h1 class="page-label">Films</h1>
+    <h1 class="visually-hidden">Films</h1>
 
     {films.map((film, index) => (
       <section class="film" aria-labelledby={`film-${index}`}>
@@ -71,24 +78,32 @@ function instagramEmbed(url: string): string {
         {dictionaryInfo.summary && <p>{dictionaryInfo.summary}</p>}
       </div>
       <ul class="dictionary-grid">
-        {dictionary.map((piece) => (
+        {pieces.map((piece) => (
           <li>
             <button
               type="button"
               class="dictionary-tile"
-              data-dialog-src={instagramEmbed(piece.url)}
+              data-dialog-video={publicSrc(piece.video)}
+              data-dialog-poster={`${piece.webp}-640.webp`}
+              data-dialog-ratio={piece.ratio}
               data-dialog-title={`${piece.title}, Chinese Dictionary`}
               data-dialog-link={piece.url}
-              data-dialog-shape="tall"
             >
-              <img
-                src={publicSrc(piece.poster)}
-                alt=""
-                width="640"
-                height="640"
-                loading="lazy"
-                decoding="async"
-              />
+              <picture>
+                <source
+                  type="image/webp"
+                  srcset={`${piece.webp}-320.webp 320w, ${piece.webp}-640.webp 640w`}
+                  sizes="(max-width: 720px) 45vw, 17rem"
+                />
+                <img
+                  src={publicSrc(piece.poster)}
+                  alt=""
+                  width="640"
+                  height="640"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </picture>
               <span class="dictionary-play" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="12" height="12">
                   <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" />
@@ -116,6 +131,11 @@ function instagramEmbed(url: string): string {
       "https://www.youtube-nocookie.com",
     );
   }
+
+  // A Chinese Dictionary clip starting in the viewer pauses the films.
+  document.addEventListener("video-dialog:play", () => {
+    for (const frame of playing) pause(frame);
+  });
 
   for (const holder of document.querySelectorAll<HTMLElement>(".film-frame")) {
     const poster = holder.querySelector<HTMLImageElement>(".film-poster");
