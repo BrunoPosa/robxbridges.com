@@ -350,20 +350,54 @@ main {
 
 /* While Bandcamp loads, a dark outline of its track list covers that part
    of the player, at the same size, so it never flashes white. The top part
-   of the player (120px: artwork, play button, timeline) stays uncovered. */
+   of the player (120px: play button, timeline) stays uncovered, except on
+   the music page's first load (data-first), when it starts blank too. */
 .player-skeleton {
   top: 120px;
   overflow: hidden;
   background: #303030;
 }
 
+.player-frame[data-first] .player-skeleton {
+  top: 0;
+}
+
+/* The outline of the player's top part: a round play button, two lines of
+   text, and a timeline. */
+.skeleton-top {
+  display: none;
+  align-items: center;
+  gap: 1rem;
+  height: 120px;
+  padding: 0 1.1rem;
+}
+
+.player-frame[data-first] .skeleton-top,
+.collab-skeleton .skeleton-top {
+  display: flex;
+}
+
 /* It appears at once, so the old list never shows through, and fades out
    once the new list is ready. */
 .player-frame:not([data-state="loading"]) .player-skeleton,
-.player-frame[data-rows="0"] .player-skeleton {
+.player-frame[data-rows="0"]:not([data-first]) .player-skeleton {
   opacity: 0;
   pointer-events: none;
   transition: opacity 350ms ease;
+}
+
+/* Safety net: the placeholder fades out on its own after 8 seconds, even if
+   the page script never lifts it, so it can never block a player for good.
+   It restarts each time a player starts loading. */
+.player-frame[data-state="loading"] .player-skeleton {
+  animation: skeleton-give-up 350ms ease 8s forwards;
+}
+
+@keyframes skeleton-give-up {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
 }
 
 /* A soft band of light that drifts across, to say "loading". */
@@ -432,7 +466,8 @@ main {
   color: var(--bone);
 }
 
-.player-frame[data-state="error"] .player-error {
+.player-frame[data-state="error"] .player-error,
+.player-noscript {
   display: grid;
 }
 
@@ -726,6 +761,43 @@ main {
 
 .collab-player {
   margin-bottom: 1.2rem;
+}
+
+/* A track player has no list, so its stand-in is only the top part. */
+.collab-skeleton {
+  top: 0;
+}
+
+.skeleton-play {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(236, 231, 220, 0.08);
+}
+
+.skeleton-lines {
+  display: grid;
+  flex: 1;
+  gap: 0.7rem;
+}
+
+.skeleton-lines > span {
+  display: block;
+  width: 45%;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: rgba(236, 231, 220, 0.08);
+}
+
+.skeleton-lines > span:nth-child(2) {
+  width: 30%;
+}
+
+.skeleton-lines > .skeleton-timeline {
+  width: 100%;
+  height: 0.3rem;
+  margin-top: 0.3rem;
 }
 
 .collab-links {

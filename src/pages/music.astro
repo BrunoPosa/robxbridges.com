@@ -151,10 +151,24 @@ const playing = releases[0];
             {playing.credit}
           </p>
           <!-- data-state is loading, ready, or error. The script sets it. -->
-          <div class="player-frame" data-state="loading" data-rows={playing.rows}>
-            <!-- Covers only the track list. Bandcamp draws its top part (artwork,
-                 play button, timeline) cleanly, but its track list flashes white. -->
+          <!-- data-first: on the page's first load the placeholder also covers
+               the player's top part (play button, timeline), which starts blank.
+               Later releases cover only the track list, which flashes white. -->
+          <div
+            class="player-frame"
+            data-state="loading"
+            data-rows={playing.rows}
+            data-first
+          >
             <div class="player-skeleton" aria-hidden="true">
+              <div class="skeleton-top">
+                <span class="skeleton-play" />
+                <span class="skeleton-lines">
+                  <span />
+                  <span />
+                  <span class="skeleton-timeline" />
+                </span>
+              </div>
               <div class="skeleton-rows">
                 {Array.from({ length: playing.rows }, () => (
                   <span class="skeleton-row" />
@@ -167,6 +181,16 @@ const playing = releases[0];
                 Listen on Bandcamp
               </a>
             </p>
+            <!-- With JavaScript off, Bandcamp's player stays a white box, so
+                 offer its own page instead. -->
+            <noscript>
+              <p class="player-error player-noscript">
+                The player needs JavaScript.
+                <a href={playing.url} target="_blank" rel="noopener noreferrer">
+                  Listen on Bandcamp
+                </a>
+              </p>
+            </noscript>
             <script is:inline>
               // Bandcamp may say its player is ready before the page script
               // below starts. Remember it here so the placeholder still lifts.
@@ -368,6 +392,8 @@ const playing = releases[0];
 
   function loadPlayer(release: ReleaseData): void {
     const token = ++playerToken;
+    // Only the page's first player gets the top part of the placeholder.
+    if (token > 1) delete playerFrame?.dataset.first;
     setPlayerState("loading");
     // A single has no track list, so it gets no placeholder.
     if (playerFrame) playerFrame.dataset.rows = String(release.rows);

@@ -42,72 +42,135 @@ function linkLabel(url: string, hasPlayer: boolean): string {
     {collaborations.length === 0 ? (
       <p class="quiet">Selected work with others will be listed here.</p>
     ) : (
-      collaborations.map((collaboration, index) => {
-        const title = collaboration.project ?? collaboration.name;
-        const cover = collaboration.cover ? publicSrc(collaboration.cover) : "";
-        return (
-          <section class="collab" aria-labelledby={`collab-${index}`}>
-            {cover && (
-              <a
-                class="collab-cover"
-                href={collaboration.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                tabindex="-1"
-                aria-hidden="true"
-              >
-                <img
-                  src={cover}
-                  alt=""
-                  width="800"
-                  height="800"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  decoding="async"
-                />
-              </a>
-            )}
-            <div class="collab-text">
-              <h2 id={`collab-${index}`}>
-                {title}
-                {collaboration.year && (
-                  <span class="film-year">{collaboration.year}</span>
-                )}
-              </h2>
-              {collaboration.project && (
-                <p class="collab-with">{withLine(collaboration.name)}</p>
-              )}
-              {collaboration.role && <p class="collab-role">{collaboration.role}</p>}
-              {collaboration.playerId && (
-                <div class="player-frame collab-player">
-                  <iframe
-                    class="player"
-                    title={`${title} on Bandcamp`}
-                    src={bandcampPlayerSrc("track", collaboration.playerId, false)}
-                    height={playerHeight}
-                    style={`height:${playerHeight}px`}
-                    loading="lazy"
-                    allow="autoplay; encrypted-media"
+      <>
+        <script is:inline>
+          // Bandcamp's player is a blank white box until it draws itself, so a
+          // gray stand-in covers it while it loads. Bandcamp says
+          // "playerinited" when it is drawn. As a backup, the stand-in also
+          // lifts shortly after the player has loaded.
+          (() => {
+            const ready = (frame) => {
+              const box = frame.closest(".collab-player");
+              if (box) box.dataset.state = "ready";
+            };
+            addEventListener("message", (event) => {
+              if (
+                event.origin !== "https://bandcamp.com" ||
+                event.data !== "playerinited"
+              )
+                return;
+              for (const frame of document.querySelectorAll(".collab-player iframe")) {
+                if (frame.contentWindow === event.source) ready(frame);
+              }
+            });
+            // A frame's load event does not bubble, so listen on the way down.
+            document.addEventListener(
+              "load",
+              (event) => {
+                const frame = event.target;
+                if (
+                  frame instanceof HTMLIFrameElement &&
+                  frame.closest(".collab-player")
+                ) {
+                  setTimeout(() => ready(frame), 2000);
+                }
+              },
+              true,
+            );
+          })();
+        </script>
+        {collaborations.map((collaboration, index) => {
+          const title = collaboration.project ?? collaboration.name;
+          const cover = collaboration.cover ? publicSrc(collaboration.cover) : "";
+          return (
+            <section class="collab" aria-labelledby={`collab-${index}`}>
+              {cover && (
+                <a
+                  class="collab-cover"
+                  href={collaboration.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  tabindex="-1"
+                  aria-hidden="true"
+                >
+                  <img
+                    src={cover}
+                    alt=""
+                    width="800"
+                    height="800"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
                   />
-                </div>
-              )}
-              <p class="collab-links">
-                <a href={collaboration.url} target="_blank" rel="noopener noreferrer">
-                  {linkLabel(collaboration.url, Boolean(collaboration.playerId))}
                 </a>
-                {collaboration.instagram && (
-                  <a
-                    href={collaboration.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Instagram
-                  </a>
+              )}
+              <div class="collab-text">
+                <h2 id={`collab-${index}`}>
+                  {title}
+                  {collaboration.year && (
+                    <span class="film-year">{collaboration.year}</span>
+                  )}
+                </h2>
+                {collaboration.project && (
+                  <p class="collab-with">{withLine(collaboration.name)}</p>
                 )}
-              </p>
-            </div>
-          </section>
-        );
-      })
+                {collaboration.role && <p class="collab-role">{collaboration.role}</p>}
+                {collaboration.playerId && (
+                  <div class="player-frame collab-player" data-state="loading">
+                    <!-- A gray outline of the player, shown until it loads. -->
+                    <div class="player-skeleton collab-skeleton" aria-hidden="true">
+                      <div class="skeleton-top">
+                        <span class="skeleton-play" />
+                        <span class="skeleton-lines">
+                          <span />
+                          <span />
+                          <span class="skeleton-timeline" />
+                        </span>
+                      </div>
+                    </div>
+                    <!-- With JavaScript off, Bandcamp's player stays a white
+                         box, so offer its own page instead. -->
+                    <noscript>
+                      <p class="player-error player-noscript">
+                        The player needs JavaScript.
+                        <a
+                          href={collaboration.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Listen on Bandcamp
+                        </a>
+                      </p>
+                    </noscript>
+                    <iframe
+                      class="player"
+                      title={`${title} on Bandcamp`}
+                      src={bandcampPlayerSrc("track", collaboration.playerId, false)}
+                      height={playerHeight}
+                      style={`height:${playerHeight}px`}
+                      loading="lazy"
+                      allow="autoplay; encrypted-media"
+                    />
+                  </div>
+                )}
+                <p class="collab-links">
+                  <a href={collaboration.url} target="_blank" rel="noopener noreferrer">
+                    {linkLabel(collaboration.url, Boolean(collaboration.playerId))}
+                  </a>
+                  {collaboration.instagram && (
+                    <a
+                      href={collaboration.instagram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Instagram
+                    </a>
+                  )}
+                </p>
+              </div>
+            </section>
+          );
+        })}
+      </>
     )}
   </article>
 </Base>
