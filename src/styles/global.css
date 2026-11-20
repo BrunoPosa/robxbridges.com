@@ -806,17 +806,17 @@ main {
   margin: 0;
 }
 
+/* Outside links are underlined in their own color. (An arrow glyph drew
+   badly on iPhones.) */
 .collab-links a {
   color: var(--taupe);
   font-size: 0.68rem;
   letter-spacing: 0.16em;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.4em;
   text-transform: uppercase;
   transition: color 200ms ease;
-}
-
-.collab-links a::after {
-  content: " ↗";
 }
 
 .collab-links a:hover {
@@ -1017,12 +1017,10 @@ main {
   color: var(--taupe);
   font-size: 0.68rem;
   letter-spacing: 0.16em;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.4em;
   text-transform: uppercase;
-}
-
-.film-link::after {
-  content: " ↗";
 }
 
 .film-link:hover {
@@ -1145,8 +1143,10 @@ main {
   cursor: pointer;
 }
 
-.video-dialog-bar a::after {
-  content: " ↗";
+.video-dialog-bar a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.4em;
 }
 
 .video-dialog-bar a:hover,
