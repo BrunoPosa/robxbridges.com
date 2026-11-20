@@ -14,7 +14,8 @@
     "preview": "astro preview",
     "check": "ASTRO_TELEMETRY_DISABLED=1 astro check",
     "test": "node --experimental-strip-types --test scripts/check-catalog.ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check-players": "node --experimental-strip-types scripts/check-players.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

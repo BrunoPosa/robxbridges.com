@@ -18,8 +18,19 @@
 // Leave ## Collaborations empty until there is a real person to list.
 import Base from "../layouts/Base.astro";
 import { bandcampPlayerSrc, loadCatalog, publicSrc, slugify } from "../data/catalog";
+import { isPlayerGone } from "../data/bandcamp-check";
 
 const { collaborations } = loadCatalog();
+
+// Asked of Bandcamp while the site is built. A track Bandcamp has taken down
+// shows a gray panel instead of Bandcamp's white "Sorry" box.
+const goneFlags = await Promise.all(
+  collaborations.map((collaboration) =>
+    collaboration.playerId
+      ? isPlayerGone("track", collaboration.playerId)
+      : Promise.resolve(false),
+  ),
+);
 
 // Bandcamp's player with no track list is about 120px tall.
 const playerHeight = 120;
@@ -82,6 +93,13 @@ function linkLabel(url: string, hasPlayer: boolean): string {
         {collaborations.map((collaboration, index) => {
           const title = collaboration.project ?? collaboration.name;
           const cover = collaboration.cover ? publicSrc(collaboration.cover) : "";
+          const gone = goneFlags[index];
+          // A removed track's Bandcamp page is gone too, so drop that link.
+          const showLink = !(
+            gone && new URL(collaboration.url).hostname.endsWith("bandcamp.com")
+          );
+          // The cover is a link only while there is somewhere to go.
+          const CoverTag = showLink ? "a" : "div";
           return (
             <section
               class="collab"
@@ -89,13 +107,17 @@ function linkLabel(url: string, hasPlayer: boolean): string {
               aria-labelledby={`collab-${index}`}
             >
               {cover && (
-                <a
+                <CoverTag
                   class="collab-cover"
-                  href={collaboration.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  tabindex="-1"
                   aria-hidden="true"
+                  {...(showLink
+                    ? {
+                        href: collaboration.url,
+                        target: "_blank",
+                        rel: "noopener noreferrer",
+                        tabindex: "-1",
+                      }
+                    : {})}
                 >
                   <img
                     src={cover}
@@ -105,7 +127,7 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                     loading={index === 0 ? "eager" : "lazy"}
                     decoding="async"
                   />
-                </a>
+                </CoverTag>
               )}
               <div class="collab-text">
                 <h2 id={`collab-${index}`}>
@@ -118,7 +140,12 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                   <p class="collab-with">{withLine(collaboration.name)}</p>
                 )}
                 {collaboration.role && <p class="collab-role">{collaboration.role}</p>}
-                {collaboration.playerId && (
+                {collaboration.playerId && gone && (
+                  <div class="player-frame collab-player" data-state="gone">
+                    <p class="player-gone">Not available right now :(</p>
+                  </div>
+                )}
+                {collaboration.playerId && !gone && (
                   <div class="player-frame collab-player" data-state="loading">
                     <!-- A gray outline of the player, shown until it loads. -->
                     <div class="player-skeleton collab-skeleton" aria-hidden="true">
@@ -157,9 +184,15 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                   </div>
                 )}
                 <p class="collab-links">
-                  <a href={collaboration.url} target="_blank" rel="noopener noreferrer">
-                    {linkLabel(collaboration.url, Boolean(collaboration.playerId))}
-                  </a>
+                  {showLink && (
+                    <a
+                      href={collaboration.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {linkLabel(collaboration.url, Boolean(collaboration.playerId))}
+                    </a>
+                  )}
                   {collaboration.instagram && (
                     <a
                       href={collaboration.instagram}

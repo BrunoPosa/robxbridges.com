@@ -169,13 +169,6 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 - Player: 465600959
 - Cover: public/images/covers/rx-ii-160-9-8-306-wav.jpg
 
-### Jupiter
-
-- Album: https://robbridgesmusic.bandcamp.com/track/jupiter
-- Player: 2182285541
-- Cover: public/images/covers/jupiter.jpg
-- Credit: Rob Bridges X Earl Duke
-
 ### XLR8 EP
 
 - Album: https://robbridgesmusic.bandcamp.com/album/xlr8-ep

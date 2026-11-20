@@ -15,6 +15,7 @@ import {
   slugify,
   type Album,
 } from "../data/catalog";
+import { isPlayerGone } from "../data/bandcamp-check";
 
 type ReleaseData = {
   title: string;
@@ -27,6 +28,8 @@ type ReleaseData = {
   // Track rows in Bandcamp's list. The loading placeholder draws the same number.
   rows: number;
   credit?: string;
+  // True when Bandcamp has taken the release down (checked while building).
+  gone?: true;
   videos: { title: string; url: string; youtubeId: string }[];
 };
 
@@ -46,7 +49,12 @@ function playerHeight(album: Album): number {
   return 136 + album.tracks.length * 38;
 }
 
-const releases: ReleaseData[] = albums.map((album) => {
+// Asked of Bandcamp all at once, while the site is built.
+const goneFlags = await Promise.all(
+  albums.map((album) => isPlayerGone(album.kind, album.playerId)),
+);
+
+const releases: ReleaseData[] = albums.map((album, at) => {
   const videos = album.tracks.flatMap((track) =>
     track.url && track.youtubeId
       ? [{ title: track.title, url: track.url, youtubeId: track.youtubeId }]
@@ -61,6 +69,7 @@ const releases: ReleaseData[] = albums.map((album) => {
     height: playerHeight(album),
     rows: album.kind === "album" && album.tracks.length > 1 ? album.tracks.length : 0,
     ...(album.credit ? { credit: album.credit } : {}),
+    ...(goneFlags[at] ? { gone: true as const } : {}),
     videos,
   };
 });
@@ -159,13 +168,13 @@ const playing = releases[0];
           <p class="release-credit" hidden={!playing.credit}>
             {playing.credit}
           </p>
-          <!-- data-state is loading, ready, or error. The script sets it. -->
+          <!-- data-state is loading, ready, error, or gone. The script sets it. -->
           <!-- data-first: on the page's first load the placeholder also covers
                the player's top part (play button, timeline), which starts blank.
                Later releases cover only the track list, which flashes white. -->
           <div
             class="player-frame"
-            data-state="loading"
+            data-state={playing.gone ? "gone" : "loading"}
             data-rows={playing.rows}
             data-first
           >
@@ -184,6 +193,8 @@ const playing = releases[0];
                 ))}
               </div>
             </div>
+            <!-- Shown instead of the player when Bandcamp has removed it. -->
+            <p class="player-gone">Not available right now :(</p>
             <p class="player-error">
               The player did not load.
               <a href={playing.url} target="_blank" rel="noopener noreferrer">
@@ -215,7 +226,7 @@ const playing = releases[0];
             <iframe
               class="player"
               title={`${playing.title} on Bandcamp`}
-              src={playing.src}
+              src={playing.gone ? "about:blank" : playing.src}
               height={playing.height}
               style={`height:${playing.height}px`}
               allow="autoplay; encrypted-media"
@@ -257,6 +268,7 @@ const playing = releases[0];
     height: number;
     rows: number;
     credit?: string;
+    gone?: true;
     videos: { title: string; url: string; youtubeId: string }[];
   };
 
@@ -396,7 +408,7 @@ const playing = releases[0];
   let playerToken = 0;
   let playerTimer = 0;
 
-  function setPlayerState(state: "loading" | "ready" | "error"): void {
+  function setPlayerState(state: "loading" | "ready" | "error" | "gone"): void {
     if (playerFrame) playerFrame.dataset.state = state;
   }
 
@@ -404,6 +416,12 @@ const playing = releases[0];
     const token = ++playerToken;
     // Only the page's first player gets the top part of the placeholder.
     if (token > 1) delete playerFrame?.dataset.first;
+    window.clearTimeout(playerTimer);
+    // Bandcamp removed it: show the gray panel, with nothing to wait for.
+    if (release.gone) {
+      setPlayerState("gone");
+      return;
+    }
     setPlayerState("loading");
     // A single has no track list, so it gets no placeholder.
     if (playerFrame) playerFrame.dataset.rows = String(release.rows);
@@ -417,10 +435,9 @@ const playing = releases[0];
       );
     }
     if (errorLink) errorLink.href = release.url;
-    window.clearTimeout(playerTimer);
     playerTimer = window.setTimeout(() => {
       if (token === playerToken) setPlayerState("error");
-    }, 15000);
+    }, 8000);
   }
 
   function playerReady(): void {
@@ -443,9 +460,11 @@ const playing = releases[0];
 
     setCover(release.cover, `${release.title} cover`);
     if (albumTitle) albumTitle.textContent = release.title;
-    if (frame instanceof HTMLIFrameElement && frame.src !== release.src) {
+    // A removed release loads an empty frame, which also stops the music.
+    const src = release.gone ? "about:blank" : release.src;
+    if (frame instanceof HTMLIFrameElement && frame.src !== src) {
       loadPlayer(release);
-      frame.src = release.src;
+      frame.src = src;
       frame.title = `${release.title} on Bandcamp`;
       frame.style.height = `${release.height}px`;
       frame.height = String(release.height);

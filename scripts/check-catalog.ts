@@ -96,7 +96,7 @@ test("the works file matches the rules", () => {
   assert.equal(typeof catalog.films[0]?.startSeconds, "number");
   assert.ok((catalog.films[0]?.startSeconds ?? 0) > 0);
 
-  assert.equal(catalog.music.albums.length, 20);
+  assert.equal(catalog.music.albums.length, 19);
   assert.ok(catalog.films.length > 0);
   assert.ok(catalog.dictionary.length > 0);
 
@@ -146,10 +146,6 @@ test("the works file matches the rules", () => {
   const single = catalog.music.albums.find((album) => album.title === "i believe now");
   assert.equal(single?.kind, "track");
   assert.equal(single?.tracks.length, 0);
-  assert.equal(
-    catalog.music.albums.find((album) => album.title === "Jupiter")?.credit,
-    "Rob Bridges X Earl Duke",
-  );
   for (const album of catalog.music.albums) {
     assert.equal(fs.existsSync(album.cover), true);
   }
@@ -195,11 +191,14 @@ test("a second release is kept", () => {
 - Album: https://robbridgesmusic.bandcamp.com/track/i-believe-now
 - Player: 797509581
 - Cover: public/images/covers/i-believe-now.jpg
+- Credit: Rob Bridges X Earl Duke
 
 ### LUNA EP`,
     ),
   );
   assert.equal(catalog.music.albums.length, 2);
+  assert.equal(catalog.music.albums[0]?.credit, "Rob Bridges X Earl Duke");
+  assert.equal(catalog.music.albums[1]?.credit, undefined);
   assert.equal(catalog.music.albums[0]?.kind, "track");
   assert.equal(catalog.music.albums[0]?.tracks.length, 0);
   assert.equal(catalog.music.albums[1]?.title, "LUNA EP");

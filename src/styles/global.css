@@ -471,6 +471,27 @@ main {
   display: grid;
 }
 
+/* A release Bandcamp has taken down (found while the site is built): a quiet
+   gray panel in place of the player, and no Bandcamp frame at all. */
+.player-gone {
+  display: none;
+  place-content: center;
+  min-height: 120px;
+  margin: 0;
+  color: var(--taupe);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.player-frame[data-state="gone"] .player-gone {
+  display: grid;
+}
+
+.player-frame[data-state="gone"] .player,
+.player-frame[data-state="gone"] .player-skeleton {
+  display: none;
+}
+
 /* Videos for this release: a still for each, under the player. */
 .release-videos {
   display: grid;
