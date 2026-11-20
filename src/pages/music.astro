@@ -8,10 +8,18 @@
 // Tracks with a YouTube link show a still under the player that opens the video.
 import Base from "../layouts/Base.astro";
 import VideoDialog from "../components/VideoDialog.astro";
-import { bandcampPlayerSrc, loadCatalog, publicSrc, type Album } from "../data/catalog";
+import {
+  bandcampPlayerSrc,
+  loadCatalog,
+  publicSrc,
+  slugify,
+  type Album,
+} from "../data/catalog";
 
 type ReleaseData = {
   title: string;
+  // The address name, so /music#luna-ep opens LUNA EP.
+  slug: string;
   url: string;
   cover: string;
   src: string;
@@ -46,6 +54,7 @@ const releases: ReleaseData[] = albums.map((album) => {
   );
   return {
     title: album.title,
+    slug: slugify(album.title),
     url: album.url,
     cover: publicSrc(album.cover),
     src: playerSrc(album),
@@ -241,6 +250,7 @@ const playing = releases[0];
 <script>
   type ReleaseData = {
     title: string;
+    slug: string;
     url: string;
     cover: string;
     src: string;
@@ -504,6 +514,30 @@ const playing = releases[0];
         }
       }, 2000);
     });
+
+    // A link such as /music#luna-ep (from the About bio) opens that release
+    // and brings it into view. /music#luna-ep-videos goes on to its video
+    // stills, which sit far below the cover on a phone.
+    const openFromAddress = () => {
+      const hash = decodeURIComponent(location.hash.slice(1));
+      const slug = hash.replace(/-videos$/, "");
+      const at = releases.findIndex(
+        (release) => release.slug === hash || release.slug === slug,
+      );
+      if (at < 0) return;
+      show(at);
+      const wantsVideos = hash !== releases[at]?.slug;
+      const target =
+        wantsVideos && videos instanceof HTMLElement && !videos.hidden
+          ? videos
+          : document.querySelector(".album-page");
+      target?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: target === videos ? "nearest" : "start",
+      });
+    };
+    openFromAddress();
+    window.addEventListener("hashchange", openFromAddress);
 
     // With a mouse or trackpad, scrolling over the big cover moves between
     // releases. Anywhere else, the page scrolls as usual.

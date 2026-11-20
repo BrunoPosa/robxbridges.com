@@ -17,7 +17,7 @@
 // the cover opens the link instead.
 // Leave ## Collaborations empty until there is a real person to list.
 import Base from "../layouts/Base.astro";
-import { bandcampPlayerSrc, loadCatalog, publicSrc } from "../data/catalog";
+import { bandcampPlayerSrc, loadCatalog, publicSrc, slugify } from "../data/catalog";
 
 const { collaborations } = loadCatalog();
 
@@ -83,7 +83,11 @@ function linkLabel(url: string, hasPlayer: boolean): string {
           const title = collaboration.project ?? collaboration.name;
           const cover = collaboration.cover ? publicSrc(collaboration.cover) : "";
           return (
-            <section class="collab" aria-labelledby={`collab-${index}`}>
+            <section
+              class="collab"
+              id={slugify(title)}
+              aria-labelledby={`collab-${index}`}
+            >
               {cover && (
                 <a
                   class="collab-cover"

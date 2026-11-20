@@ -46,7 +46,7 @@ The small covers are made from the large ones by `scripts/make-thumbs.ts`. It ru
 
 The films page shows every YouTube film under Films in `references/links.md`, in that order. Each film is a still with a Play button, and nothing plays until the visitor presses it. Starting a second film pauses the first. Aryk stays first and starts at the `t=` time in its link. Under each film are its title, then the indented `year`, `summary`, and `credits` lines when they are there, and a YouTube link.
 
-Chinese Dictionary pieces follow the films as small squares, three across (two on a phone). The `Year` and `Summary` lines under the Chinese Dictionary heading describe the whole group. A piece needs an Instagram post link, a `poster` line such as `public/films/flow.jpg`, and a `video` line such as `public/films/flow.mp4`. Pressing a square plays the clip over the page at once, with an Instagram link under it. Close, Escape, or a click outside it closes it.
+Chinese Dictionary pieces follow the films as small squares, three across (two on a phone). The `Year` and `Summary` lines under the Chinese Dictionary heading describe the whole group. An `Instagram` line there, the Instagram post for Night (the piece in the permanent installation at Hong Kong airport), adds an Instagram link under that description. A piece needs an Instagram post link, a `poster` line such as `public/films/flow.jpg`, and a `video` line such as `public/films/flow.mp4`. Pressing a square plays the clip over the page at once, with an Instagram link under it. Close, Escape, or a click outside it closes it.
 
 The clips live on this site, so nothing waits on Instagram. A clip downloads only when someone presses its square.
 
@@ -70,6 +70,8 @@ The clips live on this site, so nothing waits on Instagram. A clip downloads onl
 Collaborations are the bullets under Collaborations in `references/links.md`, newest first. Each one is a name and an https link. `project`, `role`, and `year` are optional indented lines. They show under the name. An indented `cover` line (a square picture about 800 pixels wide, saved in `public/images/collabs/`) shows the record beside the words. An indented `player` line, the Bandcamp track number (Share / Embed on the track's Bandcamp page, the number after `track=`), puts a player in that row. An indented `instagram` line adds an Instagram link under it. An empty section leaves one line on the page: selected work with others will be listed here.
 
 The bio is the paragraphs under About. A blank line starts a new paragraph. Those words, and the contact form, sit at the bottom of every page. A photo is one bullet, `Photo: public/images/about.jpg`, and that file has to exist. Until the paragraphs are written, the About heading is there on its own.
+
+To link a work from the bio, put its exact title in square brackets: `[Aryk!]` jumps to Aryk! on the Films page, and `[LUNA EP]` opens that release on the Music page. To show other words, add the title after them in round brackets: `[not/local](not/local with Kir)`. Films, releases, tracks, collaborations, and the pages `Music`, `Films`, and `Collaborations` all work. `[music videos](LUNA EP videos)` goes straight to that release's video stills, and so does a track that has a video. A link to another site is `[words](https://...)` and opens in a new tab. A name that matches nothing fails `npm test` and names the link, so a typo never goes live.
 
 ## Publish
 

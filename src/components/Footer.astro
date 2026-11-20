@@ -1,5 +1,6 @@
 ---
 // About and contact close every page. The words come from references/links.md.
+// Names in [brackets] there become links to that work on the site.
 // Send does not deliver mail while the site is being built. Do not point this
 // form at a real inbox during development or tests.
 
@@ -13,10 +14,7 @@ interface Props {
 
 const { catalog } = Astro.props;
 const links = socialLinks(catalog);
-const paragraphs = catalog.about
-  .split(/\n\s*\n/)
-  .map((paragraph) => paragraph.trim())
-  .filter(Boolean);
+const paragraphs = catalog.aboutParagraphs;
 const year = new Date().getFullYear();
 ---
 
@@ -33,7 +31,20 @@ const year = new Date().getFullYear();
         />
       )}
       {paragraphs.map((paragraph) => (
-        <p class="about-copy">{paragraph}</p>
+        <p class="about-copy">
+          {paragraph.map((piece) =>
+            !piece.href ? (
+              piece.text
+            ) : piece.external ? (
+              <a href={piece.href} target="_blank" rel="noopener noreferrer">
+                {piece.text}
+                <span class="visually-hidden"> (opens in a new tab)</span>
+              </a>
+            ) : (
+              <a href={piece.href}>{piece.text}</a>
+            ),
+          )}
+        </p>
       ))}
     </section>
 
@@ -118,6 +129,21 @@ const year = new Date().getFullYear();
   .about-copy {
     margin: 0 0 1rem;
     white-space: pre-line;
+  }
+
+  /* Links in the bio: the same colour as the words, with a quiet underline
+     that brightens on hover, so they read as links without shouting. */
+  .about-copy a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: rgba(154, 147, 134, 0.55);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+    transition: text-decoration-color 200ms ease;
+  }
+
+  .about-copy a:hover {
+    text-decoration-color: var(--bone);
   }
 
   form {

@@ -80,11 +80,17 @@ export type Catalog = {
   films: Film[];
   dictionary: DictionaryPiece[];
   // One line about the whole Chinese Dictionary group, shown above its pieces.
-  dictionaryInfo: { year?: string; summary?: string };
+  dictionaryInfo: { year?: string; summary?: string; instagram?: string };
   collaborations: Collaboration[];
   about: string;
+  // The bio split into paragraphs, each a run of plain words and links.
+  aboutParagraphs: AboutPiece[][];
   aboutPhoto?: string;
 };
+
+// One run of the bio. With href, it is a link: to a work on this site, or
+// (external) to another site.
+export type AboutPiece = { text: string; href?: string; external?: boolean };
 
 type Section = "site" | "social" | "music" | "films" | "collaborations" | "about";
 
@@ -192,6 +198,7 @@ const CatalogShape = z.object({
   dictionaryInfo: z.object({
     year: z.string().min(1).optional(),
     summary: z.string().min(1).optional(),
+    instagram: httpsUrl.optional(),
   }),
   collaborations: z.array(
     z.object({
@@ -209,6 +216,15 @@ const CatalogShape = z.object({
     }),
   ),
   about: z.string(),
+  aboutParagraphs: z.array(
+    z.array(
+      z.object({
+        text: z.string().min(1),
+        href: z.string().min(1).optional(),
+        external: z.boolean().optional(),
+      }),
+    ),
+  ),
   aboutPhoto: z.string().min(1).optional(),
 });
 
@@ -398,6 +414,22 @@ function uniqueTitles(titles: string[], group: string): void {
   }
 }
 
+// Two titles that differ only in punctuation, such as "3.14" and "3-14",
+// would share one web address, so a link could land on the wrong one.
+function uniqueAddresses(titles: string[], group: string): void {
+  const seen = new Map<string, string>();
+  for (const title of titles) {
+    const slug = slugify(title);
+    const other = seen.get(slug);
+    if (other !== undefined) {
+      throw new CatalogError(
+        `"${other}" and "${title}" under ${group} are too alike. Change one title a little.`,
+      );
+    }
+    seen.set(slug, title);
+  }
+}
+
 function youtubeAt(
   url: string,
   lineNo: number,
@@ -516,7 +548,7 @@ export function parseCatalog(source: string): Catalog {
     draft = null;
   }
   const dictionary: DictionaryPiece[] = [];
-  const dictionaryInfo: { year?: string; summary?: string } = {};
+  const dictionaryInfo: { year?: string; summary?: string; instagram?: string } = {};
   const collaborations: Collaboration[] = [];
   const aboutLines: string[] = [];
   let aboutPhoto: string | undefined;
@@ -781,6 +813,21 @@ export function parseCatalog(source: string): Catalog {
         else dictionaryInfo.summary = bullet.value;
         continue;
       }
+      // "Instagram:" is the post for the piece in the permanent installation
+      // (Night, at Hong Kong airport), shown under the group's description.
+      if (bullet.label === "Instagram") {
+        if (dictionary.length > 0) {
+          fail(lineNo, "put Instagram above the first Chinese Dictionary piece.");
+        }
+        try {
+          assertInstagramPost(bullet.value);
+        } catch (error) {
+          if (error instanceof CatalogError) fail(lineNo, error.message);
+          throw error;
+        }
+        dictionaryInfo.instagram = bullet.value;
+        continue;
+      }
       if (!bullet.isUrl)
         fail(lineNo, "a Chinese Dictionary piece needs an Instagram link.");
       try {
@@ -850,6 +897,16 @@ export function parseCatalog(source: string): Catalog {
     "Collaborations",
   );
 
+  uniqueAddresses([...films.map((film) => film.title), "Chinese Dictionary"], "Films");
+  uniqueAddresses(
+    albums.map((album) => album.title),
+    "Music",
+  );
+  uniqueAddresses(
+    collaborations.map((collaboration) => collaboration.project ?? collaboration.name),
+    "Collaborations",
+  );
+
   if (!/^aryk\b/i.test(films[0]?.title ?? "")) {
     throw new CatalogError("The first film must be Aryk.");
   }
@@ -886,6 +943,7 @@ export function parseCatalog(source: string): Catalog {
     dictionaryInfo,
     collaborations,
     about,
+    aboutParagraphs: linkAbout(about, { albums, films, dictionary, collaborations }),
     ...(aboutPhoto ? { aboutPhoto } : {}),
   };
 
@@ -895,6 +953,103 @@ export function parseCatalog(source: string): Catalog {
     throw new CatalogError(message);
   }
   return parsed.data;
+}
+
+// The web address name of a work, such as "aryk" for "Aryk!" or "luna-ep"
+// for "LUNA EP". Pages use it as the id a link jumps to.
+export function slugify(title: string): string {
+  const slug = title
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "work";
+}
+
+// The pages a bio link can name directly, such as [music videos](Music).
+const PAGES: Record<string, string> = {
+  music: "/music",
+  films: "/films",
+  collaborations: "/collaborations",
+};
+
+// Where each work lives on the site, by its lowercase title.
+function workAddresses(works: {
+  albums: Album[];
+  films: Film[];
+  dictionary: DictionaryPiece[];
+  collaborations: Collaboration[];
+}): Map<string, string> {
+  const addresses = new Map<string, string>();
+  const add = (title: string, href: string) => {
+    const key = title.trim().toLowerCase();
+    if (!addresses.has(key)) addresses.set(key, href);
+  };
+  for (const film of works.films) add(film.title, `/films#${slugify(film.title)}`);
+  add("Chinese Dictionary", "/films#chinese-dictionary");
+  for (const piece of works.dictionary) add(piece.title, "/films#chinese-dictionary");
+  for (const album of works.albums) {
+    // "LUNA EP videos" (or a track that has a video) lands on the video
+    // stills under the player, not the cover.
+    const href = `/music#${slugify(album.title)}`;
+    const videos = `${href}-videos`;
+    add(album.title, href);
+    if (album.tracks.some((track) => track.youtubeId))
+      add(`${album.title} videos`, videos);
+    for (const track of album.tracks) add(track.title, track.youtubeId ? videos : href);
+  }
+  for (const collaboration of works.collaborations) {
+    const title = collaboration.project ?? collaboration.name;
+    const href = `/collaborations#${slugify(title)}`;
+    add(title, href);
+    add(collaboration.name, href);
+  }
+  for (const [name, href] of Object.entries(PAGES)) add(name, href);
+  return addresses;
+}
+
+// Turns the bio into paragraphs of words and links. In the bio:
+//   [Aryk!]                          links to Aryk! on the Films page
+//   [not/local](not/local with Kir)  shows "not/local", links to that work
+//   [music videos](LUNA EP videos)   links to a release's video stills
+//   [Straight8](https://...)         links to another site
+// A name that matches no work stops the build, so a typo never ships.
+function linkAbout(
+  about: string,
+  works: Parameters<typeof workAddresses>[0],
+): AboutPiece[][] {
+  const addresses = workAddresses(works);
+  // The round brackets may hold a title with its own brackets, like "I: LUNA (156)".
+  const link = /\[([^\]]+)\](?:\(((?:[^()]|\([^()]*\))+)\))?/g;
+  return about
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => {
+      const pieces: AboutPiece[] = [];
+      let from = 0;
+      for (const match of paragraph.matchAll(link)) {
+        const text = (match[1] ?? "").trim();
+        const target = (match[2] ?? text).trim();
+        if (match.index > from)
+          pieces.push({ text: paragraph.slice(from, match.index) });
+        if (/^https:\/\//.test(target)) {
+          pieces.push({ text, href: target, external: true });
+        } else {
+          const href = addresses.get(target.toLowerCase());
+          if (!href) {
+            throw new CatalogError(
+              `About links to "${target}", but no film, release, track, collaboration, or page has that name. Check the spelling, or write it as [words](exact title).`,
+            );
+          }
+          pieces.push({ text, href });
+        }
+        from = match.index + match[0].length;
+      }
+      if (from < paragraph.length) pieces.push({ text: paragraph.slice(from) });
+      return pieces;
+    });
 }
 
 export function loadCatalog(root = process.cwd()): Catalog {

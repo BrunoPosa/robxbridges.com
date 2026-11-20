@@ -3,7 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { test } from "node:test";
-import { CatalogError, loadCatalog, parseCatalog } from "../src/data/catalog.ts";
+import {
+  CatalogError,
+  loadCatalog,
+  parseCatalog,
+  slugify,
+} from "../src/data/catalog.ts";
 
 function sourceFiles(dir: string): string[] {
   const found: string[] = [];
@@ -289,6 +294,7 @@ test("a film year and the Chinese Dictionary group line are kept", () => {
   - summary: Opening piece.`,
       dictionary: `- Year: 2022–2025
 - Summary: Composer and sound designer.
+- Instagram: https://www.instagram.com/p/CgjfzfvjmpX/
 - Flow: https://www.instagram.com/p/DGVfSDux34g/
   - poster: public/films/flow.jpg
   - video: public/films/flow.mp4`,
@@ -297,7 +303,23 @@ test("a film year and the Chinese Dictionary group line are kept", () => {
   assert.equal(catalog.films[0]?.year, "2026");
   assert.equal(catalog.dictionaryInfo.year, "2022–2025");
   assert.equal(catalog.dictionaryInfo.summary, "Composer and sound designer.");
+  assert.equal(
+    catalog.dictionaryInfo.instagram,
+    "https://www.instagram.com/p/CgjfzfvjmpX/",
+  );
   assert.equal(catalog.dictionary.length, 1);
+});
+
+test("the Chinese Dictionary Instagram line must be a post", () => {
+  fails(
+    sample({
+      dictionary: `- Instagram: https://www.instagram.com/thechinesedictionary/
+- Flow: https://www.instagram.com/p/DGVfSDux34g/
+  - poster: public/films/flow.jpg
+  - video: public/films/flow.mp4`,
+    }),
+    /Expected an Instagram post link/,
+  );
 });
 
 test("the Chinese Dictionary group line must come before its pieces", () => {
@@ -354,6 +376,71 @@ test("every collaboration cover file exists", () => {
       assert.ok(fs.existsSync(collaboration.cover), `missing ${collaboration.cover}`);
     }
   }
+});
+
+test("bio links point at works on the site", () => {
+  const source = sample().replace(
+    "Second paragraph.",
+    "Scored [Aryk!], made [the clips](Flow), worked [with Ada](Ada Example), see [Straight8](https://straight8.net/).",
+  );
+  const links = parseCatalog(source)
+    .aboutParagraphs.flat()
+    .filter((piece) => piece.href);
+  assert.deepEqual(links, [
+    { text: "Aryk!", href: "/films#aryk" },
+    { text: "the clips", href: "/films#chinese-dictionary" },
+    { text: "with Ada", href: "/collaborations#aryk" },
+    { text: "Straight8", href: "https://straight8.net/", external: true },
+  ]);
+});
+
+test("a bio link can land on a release's videos", () => {
+  const source = sample().replace(
+    "Second paragraph.",
+    "See [the videos](LUNA EP videos) and [the single](I: LUNA (156)).",
+  );
+  const links = parseCatalog(source)
+    .aboutParagraphs.flat()
+    .filter((piece) => piece.href);
+  assert.deepEqual(
+    links.map((piece) => piece.href),
+    ["/music#luna-ep-videos", "/music#luna-ep-videos"],
+  );
+});
+
+test("a bio link to an unknown work is rejected", () => {
+  fails(
+    sample().replace("Second paragraph.", "See [Aryk 2]."),
+    /About links to "Aryk 2"/,
+  );
+});
+
+test("the real bio links all land on a work", () => {
+  const catalog = loadCatalog();
+  const ids = new Set<string>();
+  for (const film of catalog.films) ids.add(`/films#${slugify(film.title)}`);
+  ids.add("/films#chinese-dictionary");
+  for (const album of catalog.music.albums) {
+    ids.add(`/music#${slugify(album.title)}`);
+    ids.add(`/music#${slugify(album.title)}-videos`);
+  }
+  for (const collaboration of catalog.collaborations) {
+    ids.add(`/collaborations#${slugify(collaboration.project ?? collaboration.name)}`);
+  }
+  for (const page of ["/music", "/films", "/collaborations"]) ids.add(page);
+  for (const piece of catalog.aboutParagraphs.flat()) {
+    if (piece.href && !piece.external) assert.ok(ids.has(piece.href), piece.href);
+  }
+});
+
+test("titles that would share a web address are rejected", () => {
+  fails(
+    sample({
+      films: `- Aryk!: https://www.youtube.com/watch?v=N7bynxXfhKI&t=1744s
+- Aryk?: https://www.youtube.com/watch?v=fluSgAKaUnk`,
+    }),
+    /too alike/,
+  );
 });
 
 test("a missing section is rejected", () => {

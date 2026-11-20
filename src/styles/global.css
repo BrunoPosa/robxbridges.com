@@ -1173,3 +1173,18 @@ main {
     transform: none;
   }
 }
+
+/* Links in the About bio jump to a work on another page (like /films#aryk).
+   Stop below the pinned header so the work shows in full. */
+.film,
+.dictionary,
+.collab,
+.album-page {
+  scroll-margin-top: calc(var(--header) + 1.5rem);
+}
+
+/* A link to a release's videos scrolls just far enough to show the stills,
+   with a little room below, so the player above them stays in view. */
+.release-videos {
+  scroll-margin: calc(var(--header) + 1.5rem) 0 1.5rem;
+}

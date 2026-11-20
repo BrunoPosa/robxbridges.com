@@ -7,7 +7,7 @@
 import sharp from "sharp";
 import Base from "../layouts/Base.astro";
 import VideoDialog from "../components/VideoDialog.astro";
-import { loadCatalog, publicSrc } from "../data/catalog";
+import { loadCatalog, publicSrc, slugify } from "../data/catalog";
 
 const { films, dictionary, dictionaryInfo } = loadCatalog();
 
@@ -17,7 +17,10 @@ const pieces = await Promise.all(
   dictionary.map(async (piece) => {
     const { width = 1, height = 1 } = await sharp(piece.poster).metadata();
     // The WebP copies made by scripts/make-thumbs.ts.
-    const webp = publicSrc(piece.poster).replace(/^\/films\/(.+)\.jpg$/, "/films/posters/$1");
+    const webp = publicSrc(piece.poster).replace(
+      /^\/films\/(.+)\.jpg$/,
+      "/films/posters/$1",
+    );
     return { ...piece, ratio: (width / height).toFixed(4), webp };
   }),
 );
@@ -28,7 +31,7 @@ const pieces = await Promise.all(
     <h1 class="visually-hidden">Films</h1>
 
     {films.map((film, index) => (
-      <section class="film" aria-labelledby={`film-${index}`}>
+      <section class="film" id={slugify(film.title)} aria-labelledby={`film-${index}`}>
         <div
           class="film-frame"
           data-youtube-id={film.youtubeId}
@@ -69,13 +72,27 @@ const pieces = await Promise.all(
       </section>
     ))}
 
-    <section class="dictionary" aria-labelledby="dictionary-heading">
+    <section
+      class="dictionary"
+      id="chinese-dictionary"
+      aria-labelledby="dictionary-heading"
+    >
       <div class="film-text">
         <h2 id="dictionary-heading">
           Chinese Dictionary
           {dictionaryInfo.year && <span class="film-year">{dictionaryInfo.year}</span>}
         </h2>
         {dictionaryInfo.summary && <p>{dictionaryInfo.summary}</p>}
+        {dictionaryInfo.instagram && (
+          <a
+            class="film-link"
+            href={dictionaryInfo.instagram}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Instagram
+          </a>
+        )}
       </div>
       <ul class="dictionary-grid">
         {pieces.map((piece) => (

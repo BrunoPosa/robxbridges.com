@@ -37,7 +37,9 @@ Write the bio as normal paragraphs under About. A blank line starts a new paragr
 - Photo: public/images/about.jpg
 ```
 
-The films page shows the YouTube films in this order, each with a Play button. Nothing plays until the visitor presses Play. Aryk starts at its start time. The year, summary, and credits show under each film. The Chinese Dictionary pieces come after them, as small squares. Under that heading, `Year` and `Summary` lines describe the whole group, and go above the pieces. Each piece needs the Instagram post link, an indented `poster` line (a still in `public/films/`), and an indented `video` line (the clip in `public/films/`, made with `scripts/encode-video.sh`, see the README). Pressing a piece plays the clip over the page. The Instagram link shows under it.
+To link a work from the bio, put its exact title in square brackets: `[Aryk!]` links to Aryk! on the Films page. To show different words, add the title in round brackets after them: `[not/local](not/local with Kir)`. Any film, release, track, or collaboration works, and so do `Music`, `Films`, and `Collaborations`. A release name followed by `videos`, such as `[music videos](LUNA EP videos)`, goes straight to that release's video stills. So does a track that has a video. A link to another site is `[Straight8](https://...)`. Link a work once, the first time it comes up. If a name in brackets matches nothing, the tests stop and say which one.
+
+The films page shows the YouTube films in this order, each with a Play button. Nothing plays until the visitor presses Play. Aryk starts at its start time. The year, summary, and credits show under each film. The Chinese Dictionary pieces come after them, as small squares. Under that heading, `Year` and `Summary` lines describe the whole group, and go above the pieces. An `Instagram` line there (the post for Night, the piece in the permanent installation) shows a link under the description. Each piece needs the Instagram post link, an indented `poster` line (a still in `public/films/`), and an indented `video` line (the clip in `public/films/`, made with `scripts/encode-video.sh`, see the README). Pressing a piece plays the clip over the page. The Instagram link shows under it.
 
 The music page plays every release under Music, in the order written here. Each release is its own heading. Under it, give the Bandcamp link, the player number, and the cover file. A single is just those three lines. An album lists its tracks underneath, in order. A track with a video uses a YouTube link, then an indented `player` line with that track’s Bandcamp number. A track without a video is the title alone, then the same `player` line. `Credit` shows above the player on that release. Cover files should be about 800 pixels on the long side.
 
@@ -267,6 +269,7 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 
 - Year: 2022–2025
 - Summary: Composer and sound designer for the projects. ‘Night’ is part of a permanent installation in the Kyra lounge at Hong Kong International Airport.
+- Instagram: https://www.instagram.com/p/CgjfzfvjmpX/
 - Flow: https://www.instagram.com/p/DGVfSDux34g/
   - poster: public/films/flow.jpg
   - video: public/films/flow.mp4
@@ -306,6 +309,6 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 
 Rob Bridges is a Finnish-American composer, sound designer, producer and DJ based in Helsinki. A classical start on cello gave way to jazz on trumpet and guitar, leading to jazz guitar studies at the University of the Arts in Philadelphia. He has worked as a freelance composer and sound designer, with a body of work that spans film scores, installation audio and club-ready electronic music. Alongside his acoustic roots, he brings a love for modular synthesis and electronic production to everything he makes.
 
-His film work includes the original jazz score for Aryk!, which placed in the Top 8 at Straight8 2026 and screened at Cannes Film Festival, BFI IMAX and Cambridge Film Festival. He also scored Apostate, made the audio for a permanent installation at Hong Kong International Airport’s Kyra Lounge (The Chinese Dictionary), and has directed and edited music videos for his own projects and other artists.
+His film work includes the original jazz score for [Aryk!], which placed in the Top 8 at Straight8 2026 and screened at Cannes Film Festival, BFI IMAX and Cambridge Film Festival. He also scored [Apostate], made the audio for a permanent installation at Hong Kong International Airport’s Kyra Lounge ([The Chinese Dictionary](Chinese Dictionary)), and has directed and edited [music videos](LUNA EP videos) for his own projects and other artists.
 
-Beyond composing and commissioned work, he performs as a DJ and as half of the pop/EDM duo not/local.
+Beyond composing and commissioned work, he performs as a DJ and as half of the pop/EDM duo [not/local](not/local with Kir).
