@@ -63,6 +63,22 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 - Bandcamp: https://robbridgesmusic.bandcamp.com/
 - Spotify: https://open.spotify.com/artist/2kS1RhFIh7qOvtp0PNv1uh
 
+### LUNA EP
+
+- Album: https://robbridgesmusic.bandcamp.com/album/luna-ep
+- Player: 283143371
+- Cover: public/images/covers/luna-ep.jpg
+- I: LUNA (156): https://www.youtube.com/watch?v=o4ZE9Ps4XQY
+  - player: 2438719346
+- II: SOL: https://www.youtube.com/watch?v=6Vi-Av_RqP8
+  - player: 3165008200
+- Rude Wun: https://www.youtube.com/watch?v=SoAd-e3edfo
+  - player: 493796160
+- Mind.Body.Soul
+  - player: 1961603828
+- The One You Didn't Expect
+  - player: 3607538238
+
 ### Ma' Shran Di Part II
 
 - Album: https://robbridgesmusic.bandcamp.com/album/ma-shran-di-part-ii
