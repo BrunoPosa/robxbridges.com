@@ -8,8 +8,9 @@
 // Tracks with a YouTube link show a still under the player that opens the video.
 import Base from "../layouts/Base.astro";
 import VideoDialog from "../components/VideoDialog.astro";
+import BandcampPlayer from "../components/BandcampPlayer.astro";
 import { loadCatalog, publicSrc, slugify } from "../data/catalog";
-import { playerView } from "../data/bandcamp";
+import { playerView, type PlayerView } from "../data/bandcamp";
 
 type ReleaseData = {
   title: string;
@@ -17,13 +18,9 @@ type ReleaseData = {
   slug: string;
   url: string;
   cover: string;
-  src: string;
-  height: number;
-  // Track rows in Bandcamp's list. The loading placeholder draws the same number.
-  rows: number;
+  // Bandcamp's player for this release (src/data/bandcamp.ts).
+  player: PlayerView;
   credit?: string;
-  // True when Bandcamp has taken the release down (checked while building).
-  gone?: true;
   videos: { title: string; url: string; youtubeId: string }[];
 };
 
@@ -44,11 +41,8 @@ const releases: ReleaseData[] = await Promise.all(
       slug: slugify(album.title),
       url: album.url,
       cover: publicSrc(album.cover),
-      src: player.src,
-      height: player.height,
-      rows: player.rows,
+      player,
       ...(album.credit ? { credit: album.credit } : {}),
-      ...(player.gone ? { gone: true as const } : {}),
       videos,
     };
   }),
@@ -148,70 +142,7 @@ const playing = releases[0];
           <p class="release-credit" hidden={!playing.credit}>
             {playing.credit}
           </p>
-          <!-- data-state is loading, ready, error, or gone. The script sets it. -->
-          <!-- data-first: on the page's first load the placeholder also covers
-               the player's top part (play button, timeline), which starts blank.
-               Later releases cover only the track list, which flashes white. -->
-          <div
-            class="player-frame"
-            data-state={playing.gone ? "gone" : "loading"}
-            data-rows={playing.rows}
-            data-first
-          >
-            <div class="player-skeleton" aria-hidden="true">
-              <div class="skeleton-top">
-                <span class="skeleton-play" />
-                <span class="skeleton-lines">
-                  <span />
-                  <span />
-                  <span class="skeleton-timeline" />
-                </span>
-              </div>
-              <div class="skeleton-rows">
-                {Array.from({ length: playing.rows }, () => (
-                  <span class="skeleton-row" />
-                ))}
-              </div>
-            </div>
-            <!-- Shown instead of the player when Bandcamp has removed it. -->
-            <p class="player-gone">Not available right now :(</p>
-            <p class="player-error">
-              The player did not load.
-              <a href={playing.url} target="_blank" rel="noopener noreferrer">
-                Listen on Bandcamp
-              </a>
-            </p>
-            <!-- With JavaScript off, Bandcamp's player stays a white box, so
-                 offer its own page instead. -->
-            <noscript>
-              <p class="player-error player-noscript">
-                The player needs JavaScript.
-                <a href={playing.url} target="_blank" rel="noopener noreferrer">
-                  Listen on Bandcamp
-                </a>
-              </p>
-            </noscript>
-            <script is:inline>
-              // Bandcamp may say its player is ready before the page script
-              // below starts. Remember it here so the placeholder still lifts.
-              addEventListener("message", (event) => {
-                if (
-                  event.origin === "https://bandcamp.com" &&
-                  event.data === "playerinited"
-                ) {
-                  document.documentElement.dataset.bandcampReady = "true";
-                }
-              });
-            </script>
-            <iframe
-              class="player"
-              title={`${playing.title} on Bandcamp`}
-              src={playing.gone ? "about:blank" : playing.src}
-              height={playing.height}
-              style={`height:${playing.height}px`}
-              allow="autoplay; encrypted-media"
-            />
-          </div>
+          <BandcampPlayer view={playing.player} />
           <ul class="release-videos" hidden></ul>
           <p class="album-live" aria-live="polite" />
         </div>
@@ -239,16 +170,16 @@ const playing = releases[0];
 </Base>
 
 <script>
+  import { findPlayer } from "../scripts/bandcamp-player";
+  import type { PlayerView } from "../data/bandcamp";
+
   type ReleaseData = {
     title: string;
     slug: string;
     url: string;
     cover: string;
-    src: string;
-    height: number;
-    rows: number;
+    player: PlayerView;
     credit?: string;
-    gone?: true;
     videos: { title: string; url: string; youtubeId: string }[];
   };
 
@@ -256,7 +187,6 @@ const playing = releases[0];
   const coverFrame = document.querySelector<HTMLElement>(".album-cover-frame");
   const albumTitle = document.querySelector(".album-title");
   const coverImg = document.querySelector(".album-cover");
-  const frame = document.querySelector(".player");
   const indexLabel = document.querySelector(".album-index-current");
   const credit = document.querySelector(".release-credit");
   const videos = document.querySelector(".release-videos");
@@ -264,9 +194,7 @@ const playing = releases[0];
   const shelfRow = document.querySelector(".shelf-row");
   const shelfItems = document.querySelectorAll<HTMLButtonElement>(".shelf-item");
   const shelfSteps = document.querySelectorAll<HTMLButtonElement>(".shelf-step");
-  const playerFrame = document.querySelector<HTMLElement>(".player-frame");
-  const skeletonRows = document.querySelector(".skeleton-rows");
-  const errorLink = document.querySelector<HTMLAnchorElement>(".player-error a");
+  const player = findPlayer(document.querySelector(".player-frame"));
   const dataEl = document.getElementById("release-data");
   const releases: ReleaseData[] = dataEl?.textContent
     ? (JSON.parse(dataEl.textContent) as ReleaseData[])
@@ -381,57 +309,6 @@ const playing = releases[0];
     }
   }
 
-  // The Bandcamp player paints nothing useful while it loads, so a dark
-  // placeholder of the same size stands in. Bandcamp tells this page
-  // "playerinited" when its player is drawn. If that never comes, the page
-  // offers the Bandcamp link instead.
-  let playerToken = 0;
-  let playerTimer = 0;
-
-  function setPlayerState(state: "loading" | "ready" | "error" | "gone"): void {
-    if (playerFrame) playerFrame.dataset.state = state;
-  }
-
-  function loadPlayer(release: ReleaseData): void {
-    const token = ++playerToken;
-    // Only the page's first player gets the top part of the placeholder.
-    if (token > 1) delete playerFrame?.dataset.first;
-    window.clearTimeout(playerTimer);
-    // Bandcamp removed it: show the gray panel, with nothing to wait for.
-    if (release.gone) {
-      setPlayerState("gone");
-      return;
-    }
-    setPlayerState("loading");
-    // A single has no track list, so it gets no placeholder.
-    if (playerFrame) playerFrame.dataset.rows = String(release.rows);
-    if (skeletonRows) {
-      skeletonRows.replaceChildren(
-        ...Array.from({ length: release.rows }, () => {
-          const row = document.createElement("span");
-          row.className = "skeleton-row";
-          return row;
-        }),
-      );
-    }
-    if (errorLink) errorLink.href = release.url;
-    playerTimer = window.setTimeout(() => {
-      if (token === playerToken) setPlayerState("error");
-    }, 8000);
-  }
-
-  function playerReady(): void {
-    window.clearTimeout(playerTimer);
-    setPlayerState("ready");
-  }
-
-  window.addEventListener("message", (event) => {
-    if (event.origin !== "https://bandcamp.com") return;
-    if (!(frame instanceof HTMLIFrameElement)) return;
-    if (event.source !== frame.contentWindow || event.data !== "playerinited") return;
-    playerReady();
-  });
-
   function show(next: number): void {
     if (next < 0 || next >= releases.length || next === index) return;
     index = next;
@@ -440,15 +317,7 @@ const playing = releases[0];
 
     setCover(release.cover, `${release.title} cover`);
     if (albumTitle) albumTitle.textContent = release.title;
-    // A removed release loads an empty frame, which also stops the music.
-    const src = release.gone ? "about:blank" : release.src;
-    if (frame instanceof HTMLIFrameElement && frame.src !== src) {
-      loadPlayer(release);
-      frame.src = src;
-      frame.title = `${release.title} on Bandcamp`;
-      frame.style.height = `${release.height}px`;
-      frame.height = String(release.height);
-    }
+    player?.show(release.player);
     if (indexLabel) indexLabel.textContent = String(next + 1).padStart(2, "0");
     if (credit instanceof HTMLElement) {
       credit.textContent = release.credit ?? "";
@@ -501,18 +370,6 @@ const playing = releases[0];
     }
     preload(1);
     showVideos(releases[0]?.videos ?? []);
-    if (releases[0]) loadPlayer(releases[0]);
-    if (document.documentElement.dataset.bandcampReady) playerReady();
-    // A backup in case Bandcamp ever stops sending its message: once the
-    // frame has loaded, lift the placeholder after a short wait.
-    frame?.addEventListener("load", () => {
-      const token = playerToken;
-      window.setTimeout(() => {
-        if (token === playerToken && playerFrame?.dataset.state === "loading") {
-          playerReady();
-        }
-      }, 2000);
-    });
 
     // A link such as /music#luna-ep (from the About bio) opens that release
     // and brings it into view. /music#luna-ep-videos goes on to its video
