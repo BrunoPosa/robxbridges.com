@@ -4,47 +4,17 @@
 // GitHub runs it once a week (see .github/workflows/ci.yml). If a release has
 // been taken down on Bandcamp, the run fails and GitHub sends an email, so
 // someone can fix or remove that entry. The site itself already shows a gray
-// "Not available right now" panel for it, so nothing looks broken meanwhile.
+// "Not available right now :(" panel for it, so nothing looks broken meanwhile.
 //
 // If Bandcamp cannot be reached, that is only a warning, never a failure.
-import { loadCatalog } from "../src/data/catalog.ts";
-import { playerStatus } from "../src/data/bandcamp-check.ts";
-
-type Player = { label: string; kind: "album" | "track"; playerId: string };
-
-const catalog = loadCatalog();
-const players: Player[] = [];
-
-for (const album of catalog.music.albums) {
-  players.push({
-    label: `Music: ${album.title}`,
-    kind: album.kind,
-    playerId: album.playerId,
-  });
-  for (const track of album.tracks) {
-    if (track.playerId && track.playerId !== album.playerId) {
-      players.push({
-        label: `Music: ${album.title} / ${track.title}`,
-        kind: "track",
-        playerId: track.playerId,
-      });
-    }
-  }
-}
-for (const collaboration of catalog.collaborations) {
-  if (collaboration.playerId) {
-    players.push({
-      label: `Collaborations: ${collaboration.project ?? collaboration.name}`,
-      kind: "track",
-      playerId: collaboration.playerId,
-    });
-  }
-}
+import { bandcampPlayers, loadCatalog } from "../src/data/catalog.ts";
+import { playerStatus } from "../src/data/bandcamp.ts";
 
 const results = await Promise.all(
-  players.map(async (player) => ({
-    ...player,
-    status: await playerStatus(player.kind, player.playerId),
+  bandcampPlayers(loadCatalog()).map(async ({ label, player }) => ({
+    label,
+    playerId: player.playerId,
+    status: await playerStatus(player),
   })),
 );
 

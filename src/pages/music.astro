@@ -8,14 +8,8 @@
 // Tracks with a YouTube link show a still under the player that opens the video.
 import Base from "../layouts/Base.astro";
 import VideoDialog from "../components/VideoDialog.astro";
-import {
-  bandcampPlayerSrc,
-  loadCatalog,
-  publicSrc,
-  slugify,
-  type Album,
-} from "../data/catalog";
-import { isPlayerGone } from "../data/bandcamp-check";
+import { loadCatalog, publicSrc, slugify } from "../data/catalog";
+import { playerView } from "../data/bandcamp";
 
 type ReleaseData = {
   title: string;
@@ -36,43 +30,29 @@ type ReleaseData = {
 const catalog = loadCatalog();
 const albums = catalog.music.albums;
 
-function playerSrc(album: Album): string {
-  const tracklist = album.kind === "album" && album.tracks.length > 1;
-  return bandcampPlayerSrc(album.kind, album.playerId, tracklist);
-}
-
-// The transport is about 120px and each track row is about 32px. The extra
-// pixels keep the last duration inside the rounded card, so the frame itself
-// does not scroll.
-function playerHeight(album: Album): number {
-  if (album.kind !== "album" || album.tracks.length < 2) return 120;
-  return 136 + album.tracks.length * 38;
-}
-
-// Asked of Bandcamp all at once, while the site is built.
-const goneFlags = await Promise.all(
-  albums.map((album) => isPlayerGone(album.kind, album.playerId)),
+// Bandcamp is asked about every release at once, while the site is built.
+const releases: ReleaseData[] = await Promise.all(
+  albums.map(async (album) => {
+    const player = await playerView(album.player);
+    const videos = album.tracks.flatMap((track) =>
+      track.url && track.youtubeId
+        ? [{ title: track.title, url: track.url, youtubeId: track.youtubeId }]
+        : [],
+    );
+    return {
+      title: album.title,
+      slug: slugify(album.title),
+      url: album.url,
+      cover: publicSrc(album.cover),
+      src: player.src,
+      height: player.height,
+      rows: player.rows,
+      ...(album.credit ? { credit: album.credit } : {}),
+      ...(player.gone ? { gone: true as const } : {}),
+      videos,
+    };
+  }),
 );
-
-const releases: ReleaseData[] = albums.map((album, at) => {
-  const videos = album.tracks.flatMap((track) =>
-    track.url && track.youtubeId
-      ? [{ title: track.title, url: track.url, youtubeId: track.youtubeId }]
-      : [],
-  );
-  return {
-    title: album.title,
-    slug: slugify(album.title),
-    url: album.url,
-    cover: publicSrc(album.cover),
-    src: playerSrc(album),
-    height: playerHeight(album),
-    rows: album.kind === "album" && album.tracks.length > 1 ? album.tracks.length : 0,
-    ...(album.credit ? { credit: album.credit } : {}),
-    ...(goneFlags[at] ? { gone: true as const } : {}),
-    videos,
-  };
-});
 
 // The small copy of a cover, made by scripts/make-thumbs.ts.
 function thumbSrc(cover: string): string {

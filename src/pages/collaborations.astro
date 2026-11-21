@@ -17,23 +17,18 @@
 // the cover opens the link instead.
 // Leave ## Collaborations empty until there is a real person to list.
 import Base from "../layouts/Base.astro";
-import { bandcampPlayerSrc, loadCatalog, publicSrc, slugify } from "../data/catalog";
-import { isPlayerGone } from "../data/bandcamp-check";
+import { loadCatalog, publicSrc, slugify } from "../data/catalog";
+import { playerView } from "../data/bandcamp";
 
 const { collaborations } = loadCatalog();
 
 // Asked of Bandcamp while the site is built. A track Bandcamp has taken down
 // shows a gray panel instead of Bandcamp's white "Sorry" box.
-const goneFlags = await Promise.all(
+const players = await Promise.all(
   collaborations.map((collaboration) =>
-    collaboration.playerId
-      ? isPlayerGone("track", collaboration.playerId)
-      : Promise.resolve(false),
+    collaboration.player ? playerView(collaboration.player) : undefined,
   ),
 );
-
-// Bandcamp's player with no track list is about 120px tall.
-const playerHeight = 120;
 
 // "with DJ WUF". A name that already says "with" is shown as written.
 function withLine(name: string): string {
@@ -93,7 +88,8 @@ function linkLabel(url: string, hasPlayer: boolean): string {
         {collaborations.map((collaboration, index) => {
           const title = collaboration.project ?? collaboration.name;
           const cover = collaboration.cover ? publicSrc(collaboration.cover) : "";
-          const gone = goneFlags[index];
+          const player = players[index];
+          const gone = player?.gone ?? false;
           // A removed track's Bandcamp page is gone too, so drop that link.
           const showLink = !(
             gone && new URL(collaboration.url).hostname.endsWith("bandcamp.com")
@@ -140,12 +136,12 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                   <p class="collab-with">{withLine(collaboration.name)}</p>
                 )}
                 {collaboration.role && <p class="collab-role">{collaboration.role}</p>}
-                {collaboration.playerId && gone && (
+                {player && gone && (
                   <div class="player-frame collab-player" data-state="gone">
                     <p class="player-gone">Not available right now :(</p>
                   </div>
                 )}
-                {collaboration.playerId && !gone && (
+                {player && !gone && (
                   <div class="player-frame collab-player" data-state="loading">
                     <!-- A gray outline of the player, shown until it loads. -->
                     <div class="player-skeleton collab-skeleton" aria-hidden="true">
@@ -175,9 +171,9 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                     <iframe
                       class="player"
                       title={`${title} on Bandcamp`}
-                      src={bandcampPlayerSrc("track", collaboration.playerId, false)}
-                      height={playerHeight}
-                      style={`height:${playerHeight}px`}
+                      src={player.src}
+                      height={player.height}
+                      style={`height:${player.height}px`}
                       loading="lazy"
                       allow="autoplay; encrypted-media"
                     />
@@ -190,7 +186,7 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {linkLabel(collaboration.url, Boolean(collaboration.playerId))}
+                      {linkLabel(collaboration.url, Boolean(player))}
                     </a>
                   )}
                   {collaboration.instagram && (

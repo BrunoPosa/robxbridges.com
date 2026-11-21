@@ -4,6 +4,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { test } from "node:test";
 import {
+  bandcampPlayers,
   CatalogError,
   loadCatalog,
   parseCatalog,
@@ -119,7 +120,13 @@ test("the works file matches the rules", () => {
   const luna = catalog.music.albums[0];
   assert.equal(luna?.title, "LUNA EP");
   assert.equal(luna?.kind, "album");
-  assert.equal(luna?.playerId, "283143371");
+  assert.deepEqual(luna?.player, {
+    kind: "album",
+    playerId: "283143371",
+    url: luna?.url,
+    title: "LUNA EP",
+    rows: 5,
+  });
   assert.match(
     luna?.url ?? "",
     /^https:\/\/robbridgesmusic\.bandcamp\.com\/album\/luna-ep\/?$/,
@@ -136,7 +143,7 @@ test("the works file matches the rules", () => {
     ],
   );
   assert.deepEqual(
-    luna?.tracks.map((track) => track.playerId),
+    luna?.tracks.map((track) => track.player.playerId),
     ["2438719346", "3165008200", "493796160", "1961603828", "3607538238"],
   );
   assert.deepEqual(
@@ -146,6 +153,8 @@ test("the works file matches the rules", () => {
   const single = catalog.music.albums.find((album) => album.title === "i believe now");
   assert.equal(single?.kind, "track");
   assert.equal(single?.tracks.length, 0);
+  assert.equal(single?.player.kind, "track");
+  assert.equal(single?.player.rows, 0);
   for (const album of catalog.music.albums) {
     assert.equal(fs.existsSync(album.cover), true);
   }
@@ -358,7 +367,13 @@ test("a collaboration may add a cover and a Bandcamp player number", () => {
   );
   const collaboration = parseCatalog(withBoth).collaborations[0];
   assert.equal(collaboration?.cover, "public/images/collabs/ada.jpg");
-  assert.equal(collaboration?.playerId, "1234567890");
+  assert.deepEqual(collaboration?.player, {
+    kind: "track",
+    playerId: "1234567890",
+    url: collaboration?.url,
+    title: collaboration?.project ?? collaboration?.name,
+    rows: 0,
+  });
   fails(
     sample().replace("  - year: 2024", "  - year: 2024\n  - player: track=12"),
     /track=/,
@@ -367,6 +382,17 @@ test("a collaboration may add a cover and a Bandcamp player number", () => {
     sample().replace("  - year: 2024", "  - year: 2024\n  - cover: public/ada.png"),
     /public\/images\/collabs/,
   );
+});
+
+test("the weekly check lists every player once, with where it is", () => {
+  const catalog = loadCatalog();
+  const listed = bandcampPlayers(catalog);
+  const albumPlayers = catalog.music.albums.length;
+  const trackPlayers = catalog.music.albums.flatMap((album) => album.tracks).length;
+  const collabPlayers = catalog.collaborations.filter((c) => c.player).length;
+  assert.equal(listed.length, albumPlayers + trackPlayers + collabPlayers);
+  assert.equal(listed[0]?.label, "Music: LUNA EP");
+  assert.equal(listed[1]?.label, "Music: LUNA EP / I: LUNA (156)");
 });
 
 test("every collaboration cover file exists", () => {

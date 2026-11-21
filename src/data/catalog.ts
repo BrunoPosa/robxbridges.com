@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import type { Player } from "./bandcamp";
 
 export class CatalogError extends Error {
   constructor(message: string) {
@@ -17,7 +18,9 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 
 export type Track = {
   title: string;
-  playerId: string;
+  // Not drawn on the site. The weekly check asks Bandcamp about it, so a track
+  // pulled from an album is noticed.
+  player: Player;
   url?: string;
   youtubeId?: string;
   summary?: string;
@@ -26,9 +29,9 @@ export type Track = {
 export type Album = {
   title: string;
   url: string;
-  playerId: string;
-  // "album" embeds with album=; a single embeds with track=.
+  // "album" for a release with tracks; "track" for a single.
   kind: "album" | "track";
+  player: Player;
   cover: string;
   credit?: string;
   tracks: Track[];
@@ -64,9 +67,14 @@ export type Collaboration = {
   instagram?: string;
   // A square cover in public/images/collabs/, shown beside the name.
   cover?: string;
-  // The Bandcamp track number. With it, the row gets a player.
-  playerId?: string;
+  // From the Bandcamp track number. With it, the row gets a player.
+  player?: Player;
 };
+
+// A collaboration while its notes are still being read.
+type CollaborationDraft = Omit<Collaboration, "player"> & { playerId?: string };
+// A track while its release is still being read.
+type TrackDraft = Omit<Track, "player"> & { playerId: string };
 
 export type Catalog = {
   site: { name: string; role: string; email: string };
@@ -104,7 +112,7 @@ type Bullet = {
 type Last =
   | { kind: "film"; item: Film }
   | { kind: "dictionary"; item: DictionaryPiece }
-  | { kind: "collaboration"; item: Collaboration };
+  | { kind: "collaboration"; item: CollaborationDraft };
 
 type OpenTrack = {
   title: string;
@@ -127,6 +135,14 @@ const SECTION_HEADINGS: Record<string, Section> = {
 const httpsUrl = z
   .string()
   .refine((value) => value.startsWith("https://"), "Links must start with https://");
+
+const playerShape = z.object({
+  kind: z.enum(["album", "track"]),
+  playerId: z.string().regex(/^\d{6,12}$/),
+  url: httpsUrl,
+  title: z.string().min(1),
+  rows: z.number().int().nonnegative(),
+});
 
 const CatalogShape = z.object({
   site: z.object({
@@ -153,14 +169,14 @@ const CatalogShape = z.object({
         z.object({
           title: z.string().min(1),
           url: httpsUrl,
-          playerId: z.string().regex(/^\d{6,12}$/),
           kind: z.enum(["album", "track"]),
+          player: playerShape,
           cover: z.string().min(1),
           credit: z.string().min(1).optional(),
           tracks: z.array(
             z.object({
               title: z.string().min(1),
-              playerId: z.string().regex(/^\d{6,12}$/),
+              player: playerShape,
               url: httpsUrl.optional(),
               youtubeId: z.string().regex(YOUTUBE_ID).optional(),
               summary: z.string().min(1).optional(),
@@ -209,10 +225,7 @@ const CatalogShape = z.object({
       year: z.string().min(1).optional(),
       instagram: httpsUrl.optional(),
       cover: z.string().min(1).optional(),
-      playerId: z
-        .string()
-        .regex(/^\d{6,12}$/)
-        .optional(),
+      player: playerShape.optional(),
     }),
   ),
   about: z.string(),
@@ -503,7 +516,7 @@ export function parseCatalog(source: string): Catalog {
     kind: "album" | "track";
     cover: string;
     credit: string;
-    tracks: Track[];
+    tracks: TrackDraft[];
   } | null = null;
   let openTrack: OpenTrack | null = null;
   const films: Film[] = [];
@@ -514,7 +527,7 @@ export function parseCatalog(source: string): Catalog {
     const playerId = current.playerId;
     if (!playerId) fail(current.lineNo, `${current.title} needs a player number.`);
     if (!draft) fail(current.lineNo, `${current.title} needs a release heading.`);
-    const track: Track = {
+    const track: TrackDraft = {
       title: current.title,
       playerId,
       ...(current.url && current.youtubeId
@@ -536,20 +549,40 @@ export function parseCatalog(source: string): Catalog {
       draft.tracks.map((track) => track.title),
       draft.title,
     );
+    const release = draft;
     albums.push({
-      title: draft.title,
-      url: draft.url,
-      playerId: draft.playerId,
-      kind: draft.kind,
-      cover: draft.cover,
-      ...(draft.credit ? { credit: draft.credit } : {}),
-      tracks: draft.tracks,
+      title: release.title,
+      url: release.url,
+      kind: release.kind,
+      player: {
+        kind: release.kind,
+        playerId: release.playerId,
+        url: release.url,
+        title: release.title,
+        // An album of two or more tracks shows its track list.
+        rows:
+          release.kind === "album" && release.tracks.length > 1
+            ? release.tracks.length
+            : 0,
+      },
+      cover: release.cover,
+      ...(release.credit ? { credit: release.credit } : {}),
+      tracks: release.tracks.map(({ playerId, ...track }) => ({
+        ...track,
+        player: {
+          kind: "track" as const,
+          playerId,
+          url: release.url,
+          title: track.title,
+          rows: 0,
+        },
+      })),
     });
     draft = null;
   }
   const dictionary: DictionaryPiece[] = [];
   const dictionaryInfo: { year?: string; summary?: string; instagram?: string } = {};
-  const collaborations: Collaboration[] = [];
+  const collaborations: CollaborationDraft[] = [];
   const aboutLines: string[] = [];
   let aboutPhoto: string | undefined;
   let last: Last | null = null;
@@ -849,7 +882,10 @@ export function parseCatalog(source: string): Catalog {
 
     if (section === "collaborations") {
       if (!bullet.isUrl) fail(lineNo, "add an https link after the name.");
-      const collaboration: Collaboration = { name: bullet.label, url: bullet.value };
+      const collaboration: CollaborationDraft = {
+        name: bullet.label,
+        url: bullet.value,
+      };
       collaborations.push(collaboration);
       last = { kind: "collaboration", item: collaboration };
       continue;
@@ -941,7 +977,21 @@ export function parseCatalog(source: string): Catalog {
     films,
     dictionary,
     dictionaryInfo,
-    collaborations,
+    collaborations: collaborations.map(
+      ({ playerId, ...collaboration }): Collaboration =>
+        playerId
+          ? {
+              ...collaboration,
+              player: {
+                kind: "track",
+                playerId,
+                url: collaboration.url,
+                title: collaboration.project ?? collaboration.name,
+                rows: 0,
+              },
+            }
+          : collaboration,
+    ),
     about,
     aboutParagraphs: linkAbout(about, { albums, films, dictionary, collaborations }),
     ...(aboutPhoto ? { aboutPhoto } : {}),
@@ -1109,19 +1159,6 @@ export function loadCatalog(root = process.cwd()): Catalog {
   return catalog;
 }
 
-// The address of Bandcamp's own player for one album or track. The music page
-// and the collaborations page both use it, so the players look the same.
-// Bandcamp ignores a custom dark background, so bgcol is its own gray.
-export const bandcampPlayerGray = "303030";
-
-export function bandcampPlayerSrc(
-  kind: "album" | "track",
-  playerId: string,
-  tracklist: boolean,
-): string {
-  return `https://bandcamp.com/EmbeddedPlayer/${kind}=${playerId}/size=large/bgcol=${bandcampPlayerGray}/linkcol=ece7dc/tracklist=${tracklist}/artwork=none/transparent=true/`;
-}
-
 export function publicSrc(repoPath: string): string {
   if (repoPath.startsWith("public/")) return `/${repoPath.slice("public/".length)}`;
   return `/${repoPath}`;
@@ -1135,4 +1172,28 @@ export function socialLinks(catalog: Catalog): { label: string; href: string }[]
     { label: "Bandcamp", href: bandcamp },
     { label: "Spotify", href: spotify },
   ].filter((item) => item.href !== "");
+}
+
+// Every Bandcamp player the site knows about, for the weekly check
+// (scripts/check-players.ts). Each comes with a label naming where it is.
+export function bandcampPlayers(catalog: Catalog): { label: string; player: Player }[] {
+  const players: { label: string; player: Player }[] = [];
+  for (const album of catalog.music.albums) {
+    players.push({ label: `Music: ${album.title}`, player: album.player });
+    for (const track of album.tracks) {
+      if (track.player.playerId === album.player.playerId) continue;
+      players.push({
+        label: `Music: ${album.title} / ${track.title}`,
+        player: track.player,
+      });
+    }
+  }
+  for (const collaboration of catalog.collaborations) {
+    if (!collaboration.player) continue;
+    players.push({
+      label: `Collaborations: ${collaboration.player.title}`,
+      player: collaboration.player,
+    });
+  }
+  return players;
 }
