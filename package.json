@@ -12,6 +12,7 @@
     "prebuild": "node --experimental-strip-types scripts/make-thumbs.ts",
     "build": "astro build",
     "preview": "astro preview",
+    "check-build": "node --experimental-strip-types --test scripts/check-build.ts",
     "check": "ASTRO_TELEMETRY_DISABLED=1 astro check",
     "test": "node --experimental-strip-types --test scripts/check-catalog.ts scripts/check-bandcamp.ts",
     "format": "prettier --write .",
