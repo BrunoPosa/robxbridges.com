@@ -222,6 +222,15 @@ main {
   max-width: 100%;
 }
 
+/* The whole carousel can take focus, so arrow keys change release. On a
+   phone there are no arrow keys, and Safari hands focus back here after a
+   video closes, which would draw a ring around everything. */
+@media (pointer: coarse) {
+  .album:focus-visible {
+    outline: none;
+  }
+}
+
 /* The title, the cover, and the row of all covers. The cover is never taller
    than the screen allows, so the row under it stays in view on a laptop. */
 .album-side {
