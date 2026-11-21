@@ -17,6 +17,7 @@
 // the cover opens the link instead.
 // Leave ## Collaborations empty until there is a real person to list.
 import Base from "../layouts/Base.astro";
+import BandcampPlayer from "../components/BandcampPlayer.astro";
 import { loadCatalog, publicSrc, slugify } from "../data/catalog";
 import { playerView } from "../data/bandcamp";
 
@@ -49,42 +50,6 @@ function linkLabel(url: string, hasPlayer: boolean): string {
       <p class="quiet">Selected work with others will be listed here.</p>
     ) : (
       <>
-        <script is:inline>
-          // Bandcamp's player is a blank white box until it draws itself, so a
-          // gray stand-in covers it while it loads. Bandcamp says
-          // "playerinited" when it is drawn. As a backup, the stand-in also
-          // lifts shortly after the player has loaded.
-          (() => {
-            const ready = (frame) => {
-              const box = frame.closest(".collab-player");
-              if (box) box.dataset.state = "ready";
-            };
-            addEventListener("message", (event) => {
-              if (
-                event.origin !== "https://bandcamp.com" ||
-                event.data !== "playerinited"
-              )
-                return;
-              for (const frame of document.querySelectorAll(".collab-player iframe")) {
-                if (frame.contentWindow === event.source) ready(frame);
-              }
-            });
-            // A frame's load event does not bubble, so listen on the way down.
-            document.addEventListener(
-              "load",
-              (event) => {
-                const frame = event.target;
-                if (
-                  frame instanceof HTMLIFrameElement &&
-                  frame.closest(".collab-player")
-                ) {
-                  setTimeout(() => ready(frame), 2000);
-                }
-              },
-              true,
-            );
-          })();
-        </script>
         {collaborations.map((collaboration, index) => {
           const title = collaboration.project ?? collaboration.name;
           const cover = collaboration.cover ? publicSrc(collaboration.cover) : "";
@@ -136,48 +101,8 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                   <p class="collab-with">{withLine(collaboration.name)}</p>
                 )}
                 {collaboration.role && <p class="collab-role">{collaboration.role}</p>}
-                {player && gone && (
-                  <div class="player-frame collab-player" data-state="gone">
-                    <p class="player-gone">Not available right now :(</p>
-                  </div>
-                )}
-                {player && !gone && (
-                  <div class="player-frame collab-player" data-state="loading">
-                    <!-- A gray outline of the player, shown until it loads. -->
-                    <div class="player-skeleton collab-skeleton" aria-hidden="true">
-                      <div class="skeleton-top">
-                        <span class="skeleton-play" />
-                        <span class="skeleton-lines">
-                          <span />
-                          <span />
-                          <span class="skeleton-timeline" />
-                        </span>
-                      </div>
-                    </div>
-                    <!-- With JavaScript off, Bandcamp's player stays a white
-                         box, so offer its own page instead. -->
-                    <noscript>
-                      <p class="player-error player-noscript">
-                        The player needs JavaScript.
-                        <a
-                          href={collaboration.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Listen on Bandcamp
-                        </a>
-                      </p>
-                    </noscript>
-                    <iframe
-                      class="player"
-                      title={`${title} on Bandcamp`}
-                      src={player.src}
-                      height={player.height}
-                      style={`height:${player.height}px`}
-                      loading="lazy"
-                      allow="autoplay; encrypted-media"
-                    />
-                  </div>
+                {player && (
+                  <BandcampPlayer view={player} loading="lazy" class="collab-player" />
                 )}
                 <p class="collab-links">
                   {showLink && (

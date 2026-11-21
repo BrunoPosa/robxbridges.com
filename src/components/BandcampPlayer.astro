@@ -1,0 +1,98 @@
+---
+// Bandcamp's own player for one release or track, with everything around it:
+// a gray outline while it loads, a "Listen on Bandcamp" link if it never
+// loads, and a gray "Not available" panel when Bandcamp has removed it.
+// The page script that runs it is src/scripts/bandcamp-player.ts.
+//
+// Use it with a PlayerView from src/data/bandcamp.ts:
+//   <BandcampPlayer view={await playerView(album.player)} />
+import type { PlayerView } from "../data/bandcamp";
+
+type Props = {
+  view: PlayerView;
+  // "lazy" waits to load the player until it is near the screen.
+  loading?: "eager" | "lazy";
+  // Extra classes for the page's own spacing.
+  class?: string;
+};
+
+const { view, loading = "eager", class: className } = Astro.props;
+---
+
+<!-- data-state is loading, ready, error, or gone. The page script sets it.
+     data-first: a fresh player starts blank, so the outline covers all of it.
+     src/scripts/bandcamp-player.ts removes it when the player changes release. -->
+<div
+  class:list={["player-frame", className]}
+  data-state={view.gone ? "gone" : "loading"}
+  data-rows={view.rows}
+  data-first
+>
+  <div class="player-skeleton" aria-hidden="true">
+    <div class="skeleton-top">
+      <span class="skeleton-play"></span>
+      <span class="skeleton-lines">
+        <span></span>
+        <span></span>
+        <span class="skeleton-timeline"></span>
+      </span>
+    </div>
+    <div class="skeleton-rows">
+      {Array.from({ length: view.rows }, () => (
+        <span class="skeleton-row" />
+      ))}
+    </div>
+  </div>
+  <!-- Shown instead of the player when Bandcamp has removed it. -->
+  <p class="player-gone">Not available right now :(</p>
+  <p class="player-error">
+    The player did not load.
+    <a href={view.url} target="_blank" rel="noopener noreferrer">
+      Listen on Bandcamp
+    </a>
+  </p>
+  {!view.gone && (
+    // With JavaScript off, Bandcamp's player stays a white box, so offer
+    // its own page instead.
+    <noscript>
+      <p class="player-error player-noscript">
+        The player needs JavaScript.
+        <a href={view.url} target="_blank" rel="noopener noreferrer">
+          Listen on Bandcamp
+        </a>
+      </p>
+    </noscript>
+  )}
+  <script is:inline>
+    // Bandcamp says "playerinited" once its player is drawn, which can be
+    // before the page script starts. This listens from the first player on
+    // the page and lifts the outline of whichever player said it.
+    if (!window.bandcampListening) {
+      window.bandcampListening = true;
+      addEventListener("message", (event) => {
+        if (event.origin !== "https://bandcamp.com" || event.data !== "playerinited") {
+          return;
+        }
+        for (const frame of document.querySelectorAll(".player-frame iframe")) {
+          const box = frame.parentElement;
+          if (frame.contentWindow === event.source && box.dataset.state === "loading") {
+            box.dataset.state = "ready";
+          }
+        }
+      });
+    }
+  </script>
+  <iframe
+    class="player"
+    title={`${view.title} on Bandcamp`}
+    src={view.gone ? "about:blank" : view.src}
+    height={view.height}
+    style={`height:${view.height}px`}
+    loading={loading}
+    allow="autoplay; encrypted-media"
+  ></iframe>
+</div>
+
+<script>
+  import "../scripts/bandcamp-player";
+</script>

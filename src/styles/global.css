@@ -350,8 +350,8 @@ main {
 
 /* While Bandcamp loads, a dark outline of its track list covers that part
    of the player, at the same size, so it never flashes white. The top part
-   of the player (120px: play button, timeline) stays uncovered, except on
-   the music page's first load (data-first), when it starts blank too. */
+   of the player (120px: play button, timeline) stays uncovered, except on a
+   fresh player (data-first), which starts blank too. */
 .player-skeleton {
   top: 120px;
   overflow: hidden;
@@ -372,8 +372,7 @@ main {
   padding: 0 1.1rem;
 }
 
-.player-frame[data-first] .skeleton-top,
-.collab-skeleton .skeleton-top {
+.player-frame[data-first] .skeleton-top {
   display: flex;
 }
 
@@ -782,11 +781,6 @@ main {
 
 .collab-player {
   margin-bottom: 1.2rem;
-}
-
-/* A track player has no list, so its stand-in is only the top part. */
-.collab-skeleton {
-  top: 0;
 }
 
 .skeleton-play {
