@@ -14,7 +14,7 @@
     "preview": "astro preview",
     "check-build": "node --experimental-strip-types --test scripts/check-build.ts",
     "check": "ASTRO_TELEMETRY_DISABLED=1 astro check",
-    "test": "node --experimental-strip-types --test scripts/check-catalog.ts scripts/check-bandcamp.ts",
+    "test": "node --experimental-strip-types --test scripts/check-catalog.ts scripts/check-bandcamp.ts scripts/check-contact.ts",
     "format": "prettier --write .",
     "check-players": "node --experimental-strip-types scripts/check-players.ts"
   },

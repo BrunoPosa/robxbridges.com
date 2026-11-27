@@ -81,7 +81,7 @@ GitHub runs the checks. The live site changes only when they pass.
 
 A red check means a line in the catalog is incomplete, or the build failed. On your machine, run `npm test` and `npm run build`, fix the file, and push again.
 
-The contact form emails the `Email` under Site in `references/links.md` (robbridgesmusic@gmail.com), through the free service FormSubmit. The first message ever sent makes FormSubmit email that inbox an **Activate Form** button; click it once and every later message arrives. Replies go straight to whoever wrote in. Check the spam folder the first time.
+The contact form emails robbridgesmusic@gmail.com through Resend (resend.com), from `contact@robxbridges.com`. Hitting Reply answers the visitor. The address lives in `api/contact.ts` and must match the Site `Email` in `references/links.md` (a test checks). The form only sends on the live site, or locally with `vercel dev`; `npm run dev` shows "That did not send". See *Contact form email* below for the one-time setup.
 
 ### When a release disappears from Bandcamp
 
@@ -102,6 +102,16 @@ Do this once. The publisher is GitHub Actions, on a Vercel Hobby project.
    - `VERCEL_PROJECT_ID` is `projectId`.
 
 The next push to `main` publishes the site. Until those three secrets exist, the checks still run and the publish step skips.
+
+## Contact form email
+
+Done once, by whoever owns the Resend account.
+
+1. Sign up at resend.com. Under Domains, add `robxbridges.com` and add the DNS records it shows at the registrar. Wait until it says Verified.
+2. Under API Keys, create a key with "Sending access" for that domain.
+3. In the Vercel project, Settings, Environment Variables: add `RESEND_API_KEY` with that key, for Production. Then redeploy (push, or re-run the GitHub action).
+
+Free tier: 3,000 emails a month, 100 a day.
 
 ## Domain
 

@@ -1,10 +1,7 @@
 ---
 // About and contact close every page. The words come from references/links.md.
 // Names in [brackets] there become links to that work on the site.
-// The contact form mails the Site Email in references/links.md through
-// FormSubmit (formsubmit.co), a free service with no account or password.
-// The very first message sent makes FormSubmit email that inbox an
-// "Activate Form" button. Nothing arrives until it is clicked, once.
+// The contact form posts to api/contact.ts, which emails Rob through Resend.
 
 import type { Catalog } from "../data/catalog";
 import { publicSrc, socialLinks } from "../data/catalog";
@@ -18,10 +15,6 @@ const { catalog } = Astro.props;
 const links = socialLinks(catalog);
 const paragraphs = catalog.aboutParagraphs;
 const year = new Date().getFullYear();
-// Where Send posts. The "ajax" one answers the page's script; the plain one
-// is the fallback when JavaScript is off, and shows FormSubmit's own thank-you page.
-const formAddress = `https://formsubmit.co/${catalog.site.email}`;
-const ajaxAddress = `https://formsubmit.co/ajax/${catalog.site.email}`;
 ---
 
 <footer class="site-footer">
@@ -56,21 +49,13 @@ const ajaxAddress = `https://formsubmit.co/ajax/${catalog.site.email}`;
 
     <section id="contact" aria-labelledby="contact-heading">
       <h2 id="contact-heading">Contact</h2>
-      <form
-        id="contact-form"
-        method="post"
-        action={formAddress}
-        data-endpoint={ajaxAddress}
-      >
-        <!-- The subject line of the email Rob receives. -->
-        <input type="hidden" name="_subject" value="New message from robxbridges.com" />
-        <input type="hidden" name="_template" value="table" />
+      <form id="contact-form" method="post" action="/api/contact">
         <!-- A trap for spam bots: people never see it, so it stays empty.
-             FormSubmit drops any message where it is filled in. -->
+             The server drops any message where it is filled in. -->
         <input
           class="trap"
           type="text"
-          name="_honey"
+          name="website"
           tabindex="-1"
           autocomplete="off"
           aria-hidden="true"
@@ -111,16 +96,13 @@ const ajaxAddress = `https://formsubmit.co/ajax/${catalog.site.email}`;
             button.disabled = true;
             say("Sending…");
             try {
-              const response = await fetch(form.dataset.endpoint ?? "", {
+              const response = await fetch(form.action, {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Accept: "application/json",
-                },
-                body: JSON.stringify(Object.fromEntries(new FormData(form))),
+                headers: { Accept: "application/json" },
+                body: new FormData(form),
               });
-              const answer: { success?: string | boolean } = await response.json();
-              if (!response.ok || String(answer.success) !== "true") throw new Error();
+              const answer: { ok?: boolean } = await response.json();
+              if (!response.ok || !answer.ok) throw new Error();
               form.reset();
               say("Thank you. Your message is on its way.");
             } catch {
