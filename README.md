@@ -81,7 +81,7 @@ GitHub runs the checks. The live site changes only when they pass.
 
 A red check means a line in the catalog is incomplete, or the build failed. On your machine, run `npm test` and `npm run build`, fix the file, and push again.
 
-The contact form does not send email. Submit stays on the page while the site is being built.
+The contact form emails the `Email` under Site in `references/links.md` (robbridgesmusic@gmail.com), through the free service FormSubmit. The first message ever sent makes FormSubmit email that inbox an **Activate Form** button; click it once and every later message arrives. Replies go straight to whoever wrote in. Check the spam folder the first time.
 
 ### When a release disappears from Bandcamp
 

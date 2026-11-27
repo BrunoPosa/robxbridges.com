@@ -532,18 +532,16 @@ test("the home still is a matched pair", () => {
   assert.ok(photo.width >= 1000);
 });
 
-test("the site source cannot send email", () => {
-  const offenders = sourceFiles("src").filter((file) => {
-    const text = fs.readFileSync(file, "utf8");
-    return (
-      /mailto:/i.test(text) ||
-      /web3forms|formspree|api\.resend\.com|nodemailer/i.test(text)
-    );
-  });
-  assert.deepEqual(offenders, []);
+test("the contact form mails the Site Email through FormSubmit", () => {
   const footer = fs.readFileSync("src/components/Footer.astro", "utf8");
-  assert.match(footer, /note\.textContent = "Nothing was sent\."/);
-  assert.equal(/note\.textContent = "[^"]*being built/.test(footer), false);
+  assert.match(footer, /formsubmit\.co\/ajax\/\$\{catalog\.site\.email\}/);
+  assert.match(footer, /name="_honey"/);
+  const links = fs.readFileSync("references/links.md", "utf8");
+  assert.match(links, /^- Email: robbridgesmusic@gmail\.com$/m);
+  // The live site's content policy has to let the form reach FormSubmit.
+  const policy = fs.readFileSync("vercel.json", "utf8");
+  assert.match(policy, /connect-src [^;]*https:\/\/formsubmit\.co/);
+  assert.match(policy, /form-action https:\/\/formsubmit\.co/);
 });
 
 // Public images must not carry a location, an email, or a content-credentials manifest.
