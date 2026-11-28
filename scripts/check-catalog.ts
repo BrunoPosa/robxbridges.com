@@ -94,8 +94,6 @@ test("the works file matches the rules", () => {
   const catalog = loadCatalog();
 
   assert.match(catalog.films[0]?.title ?? "", /^aryk\b/i);
-  assert.equal(typeof catalog.films[0]?.startSeconds, "number");
-  assert.ok((catalog.films[0]?.startSeconds ?? 0) > 0);
 
   assert.equal(catalog.music.albums.length, 19);
   assert.ok(catalog.films.length > 0);
@@ -107,8 +105,14 @@ test("the works file matches the rules", () => {
     }
   }
   for (const film of catalog.films) {
-    assert.equal(film.youtubeId.length, 11);
-    assert.match(film.url, /^https:\/\/www\.youtube\.com\/watch\?/);
+    if (film.host === "youtube") {
+      assert.equal(film.videoId.length, 11);
+      assert.match(film.url, /^https:\/\/www\.youtube\.com\/watch\?/);
+    } else {
+      assert.match(film.videoId, /^\d+$/);
+      assert.match(film.url, /^https:\/\/(player\.)?vimeo\.com\//);
+      assert.equal(fs.existsSync(film.poster ?? ""), true);
+    }
   }
   for (const piece of catalog.dictionary) {
     assert.match(piece.url, /^https:\/\/www\.instagram\.com\/p\/[A-Za-z0-9_-]+\/?$/);
@@ -217,21 +221,61 @@ test("a bad player number is rejected", () => {
   fails(sample().replace("- Player: 283143371", "- Player: not-a-number"), /Player/);
 });
 
-test("a film that is not YouTube is rejected", () => {
+test("a film that is not YouTube or Vimeo is rejected", () => {
   fails(
     sample({
       films: "- Aryk!: https://example.com/not-youtube",
     }),
-    /YouTube/,
+    /YouTube or Vimeo/,
   );
 });
 
-test("Aryk without a start time is rejected", () => {
+test("a Vimeo film is read, with its still and start time", () => {
+  const catalog = parseCatalog(
+    sample({
+      films: `- Aryk!: https://vimeo.com/1196470910?fl=pl&fe=vl#t=1m30s
+  - poster: public/images/films/aryk.jpg`,
+    }),
+  );
+  const film = catalog.films[0];
+  assert.equal(film?.host, "vimeo");
+  assert.equal(film?.videoId, "1196470910");
+  assert.equal(film?.vimeoHash, undefined);
+  assert.equal(film?.startSeconds, 90);
+  assert.equal(film?.poster, "public/images/films/aryk.jpg");
+});
+
+test("an unlisted Vimeo link keeps its second code", () => {
+  const catalog = parseCatalog(
+    sample({
+      films: `- Aryk!: https://vimeo.com/1196470910/abc123def0
+  - poster: public/images/films/aryk.jpg`,
+    }),
+  );
+  assert.equal(catalog.films[0]?.vimeoHash, "abc123def0");
+});
+
+test("a Vimeo film without a still is rejected", () => {
+  fails(sample({ films: "- Aryk!: https://vimeo.com/1196470910" }), /needs a still/);
+});
+
+test("a Vimeo link without a video number is rejected", () => {
   fails(
     sample({
-      films: "- Aryk!: https://www.youtube.com/watch?v=N7bynxXfhKI",
+      films: `- Aryk!: https://vimeo.com/straight8
+  - poster: public/images/films/aryk.jpg`,
     }),
-    /start time/,
+    /video number/,
+  );
+});
+
+test("a film still must be a JPG in public/images/films", () => {
+  fails(
+    sample({
+      films: `- Aryk!: https://vimeo.com/1196470910
+  - poster: public/films/aryk.png`,
+    }),
+    /public\/images\/films/,
   );
 });
 

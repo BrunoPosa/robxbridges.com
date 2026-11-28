@@ -2,14 +2,35 @@
 // Films come from references/links.md, in that order. Keep Aryk first.
 // Each film shows its still with a Play button. Nothing plays until the
 // visitor presses Play. The year, summary, and credits sit under the picture.
+// A film can be on YouTube or Vimeo. Its link decides which player opens.
 // Chinese Dictionary pieces are small squares. Pressing one plays its clip
 // (hosted on this site) in a viewer over the page. Nothing downloads before.
 import sharp from "sharp";
 import Base from "../layouts/Base.astro";
 import VideoDialog from "../components/VideoDialog.astro";
-import { loadCatalog, publicSrc, slugify } from "../data/catalog";
+import { loadCatalog, publicSrc, slugify, type Film } from "../data/catalog";
 
 const { films, dictionary, dictionaryInfo } = loadCatalog();
+
+// The player's address. It only loads once Play is pressed.
+function embedSrc(film: Film): string {
+  const start = film.startSeconds ?? 0;
+  if (film.host === "vimeo") {
+    const hash = film.vimeoHash ? `h=${film.vimeoHash}&` : "";
+    // dnt=1: Vimeo sets no tracking cookies.
+    return `https://player.vimeo.com/video/${film.videoId}?${hash}autoplay=1&dnt=1#t=${start}s`;
+  }
+  return `https://www.youtube-nocookie.com/embed/${film.videoId}?autoplay=1&start=${start}&rel=0&playsinline=1&enablejsapi=1`;
+}
+
+// The still before Play. A poster line in links.md wins. Otherwise YouTube's.
+function stills(film: Film): { src: string; fallback?: string } {
+  if (film.poster) return { src: publicSrc(film.poster) };
+  return {
+    src: `https://i.ytimg.com/vi/${film.videoId}/maxresdefault.jpg`,
+    fallback: `https://i.ytimg.com/vi/${film.videoId}/hqdefault.jpg`,
+  };
+}
 
 // Each still's width / height. The still has the clip's shape, so the viewer
 // can size itself before the clip loads.
@@ -34,13 +55,13 @@ const pieces = await Promise.all(
       <section class="film" id={slugify(film.title)} aria-labelledby={`film-${index}`}>
         <div
           class="film-frame"
-          data-youtube-id={film.youtubeId}
-          data-start={film.startSeconds ?? 0}
+          data-embed={embedSrc(film)}
+          data-host={film.host}
         >
           <img
             class="film-poster"
-            src={`https://i.ytimg.com/vi/${film.youtubeId}/maxresdefault.jpg`}
-            data-fallback={`https://i.ytimg.com/vi/${film.youtubeId}/hqdefault.jpg`}
+            src={stills(film).src}
+            data-fallback={stills(film).fallback}
             alt=""
             width="1280"
             height="720"
@@ -66,7 +87,7 @@ const pieces = await Promise.all(
             target="_blank"
             rel="noopener noreferrer"
           >
-            YouTube
+            {film.host === "vimeo" ? "Vimeo" : "YouTube"}
           </a>
         </div>
       </section>
@@ -137,11 +158,16 @@ const pieces = await Promise.all(
 </Base>
 
 <script>
-  // Play swaps the still for YouTube's player. Starting another film pauses
-  // the one before it, so only one plays at a time.
+  // Play swaps the still for the YouTube or Vimeo player. Starting another
+  // film pauses the one before it, so only one plays at a time.
   const playing: HTMLIFrameElement[] = [];
 
   function pause(frame: HTMLIFrameElement): void {
+    if (frame.dataset.host === "vimeo") {
+      // Vimeo's player listens for this message.
+      frame.contentWindow?.postMessage({ method: "pause" }, "https://player.vimeo.com");
+      return;
+    }
     // YouTube listens for this message when enablejsapi=1 is in the address.
     frame.contentWindow?.postMessage(
       JSON.stringify({ event: "command", func: "pauseVideo", args: [] }),
@@ -167,12 +193,12 @@ const pieces = await Promise.all(
     else poster?.addEventListener("load", useFallback, { once: true });
 
     holder.querySelector(".film-play")?.addEventListener("click", () => {
-      const id = holder.dataset.youtubeId;
-      if (!id) return;
+      const src = holder.dataset.embed;
+      if (!src) return;
       for (const other of playing) pause(other);
-      const start = Number(holder.dataset.start) || 0;
       const frame = document.createElement("iframe");
-      frame.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&start=${start}&rel=0&playsinline=1&enablejsapi=1`;
+      frame.src = src;
+      frame.dataset.host = holder.dataset.host ?? "youtube";
       frame.title =
         holder.closest(".film")?.querySelector("h2")?.textContent?.trim() ?? "Film";
       frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";

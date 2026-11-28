@@ -22,7 +22,7 @@ npm test
 npm run build
 ```
 
-`npm test` fails when a line in `references/links.md` is incomplete or points at the wrong kind of page. A film must be a YouTube link. A Chinese Dictionary piece must be an Instagram post with a still and a clip. Aryk stays first and keeps a start time.
+`npm test` fails when a line in `references/links.md` is incomplete or points at the wrong kind of page. A film must be a YouTube or Vimeo link, and a Vimeo film needs a `poster` still. A Chinese Dictionary piece must be an Instagram post with a still and a clip. Aryk stays first.
 
 ## Fonts
 
@@ -44,7 +44,7 @@ The small covers are made from the large ones by `scripts/make-thumbs.ts`. It ru
 
 ## Films
 
-The films page shows every YouTube film under Films in `references/links.md`, in that order. Each film is a still with a Play button, and nothing plays until the visitor presses it. Starting a second film pauses the first. Aryk stays first and starts at the `t=` time in its link. Under each film are its title, then the indented `year`, `summary`, and `credits` lines when they are there, and a YouTube link.
+The films page shows every film under Films in `references/links.md`, in that order. A film is a YouTube or Vimeo link. Each film is a still with a Play button, and nothing plays until the visitor presses it. Starting a second film pauses the first. A YouTube link's `t=` time (or `#t=90s` at the end of a Vimeo link) sets where the film starts. Vimeo gives no still from a link, so a Vimeo film needs an indented `poster` line pointing at a 16:9 JPG in `public/images/films/`, such as `public/images/films/aryk.jpg`. A YouTube film uses YouTube's still unless it has a `poster` line too. Under each film are its title, then the indented `year`, `summary`, and `credits` lines when they are there, and a link to the film on YouTube or Vimeo.
 
 Chinese Dictionary pieces follow the films as small squares, three across (two on a phone). The `Year` and `Summary` lines under the Chinese Dictionary heading describe the whole group. An `Instagram` line there, the Instagram post for Night (the piece in the permanent installation at Hong Kong airport), adds an Instagram link under that description. A piece needs an Instagram post link, a `poster` line such as `public/films/flow.jpg`, and a `video` line such as `public/films/flow.mp4`. Pressing a square plays the clip over the page at once, with an Instagram link under it. Close, Escape, or a click outside it closes it.
 

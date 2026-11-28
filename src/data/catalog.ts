@@ -15,6 +15,11 @@ export class CatalogError extends Error {
 }
 
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+const VIMEO_ID = /^\d{6,12}$/;
+// The second code in an unlisted Vimeo link, as in vimeo.com/123456789/abc123def0.
+const VIMEO_HASH = /^[0-9a-f]{6,20}$/;
+// Film stills kept on this site (Vimeo gives no still from the link alone).
+const FILM_POSTER = /^public\/images\/films\/[a-z0-9-]+\.jpg$/;
 
 export type Track = {
   title: string;
@@ -40,8 +45,15 @@ export type Album = {
 export type Film = {
   title: string;
   url: string;
-  youtubeId: string;
+  // The site that plays the film, read from its link.
+  host: "youtube" | "vimeo";
+  videoId: string;
+  // Only for an unlisted Vimeo video: the second code in its link.
+  vimeoHash?: string;
   startSeconds: number | null;
+  // A still in public/images/films. A Vimeo film needs one. A YouTube film
+  // uses YouTube's own still unless this is set.
+  poster?: string;
   year?: string;
   summary?: string;
   credits?: string;
@@ -191,8 +203,11 @@ const CatalogShape = z.object({
       z.object({
         title: z.string().min(1),
         url: httpsUrl,
-        youtubeId: z.string().regex(YOUTUBE_ID),
+        host: z.enum(["youtube", "vimeo"]),
+        videoId: z.string().min(1),
+        vimeoHash: z.string().regex(VIMEO_HASH).optional(),
         startSeconds: z.number().int().nonnegative().nullable(),
+        poster: z.string().regex(FILM_POSTER).optional(),
         year: z.string().min(1).optional(),
         summary: z.string().min(1).optional(),
         credits: z.string().min(1).optional(),
@@ -275,6 +290,82 @@ export function readYouTube(url: string): { id: string; startSeconds: number | n
     throw new CatalogError(`The start time in ${url} needs to look like t=1744s.`);
   }
   return { id, startSeconds: seconds };
+}
+
+// A start time such as 1744, 1744s, or 29m4s, in seconds.
+function readStartTime(raw: string, url: string): number {
+  const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/i);
+  if (!raw || !match) {
+    throw new CatalogError(`The start time in ${url} needs to look like t=1744s.`);
+  }
+  const [, hours = "0", minutes = "0", seconds = "0"] = match;
+  return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+}
+
+// Reads vimeo.com/123456789, vimeo.com/123456789/abc123 (an unlisted video),
+// or player.vimeo.com/video/123456789?h=abc123. Extra bits after "?" are fine.
+// A start time goes at the end, as #t=90s.
+export function readVimeo(url: string): {
+  id: string;
+  hash?: string;
+  startSeconds: number | null;
+} {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new CatalogError(`This is not a usable link: ${url}`);
+  }
+
+  const host = parsed.hostname.replace(/^www\./, "");
+  const parts = parsed.pathname.split("/").filter(Boolean);
+  let id = "";
+  let hash: string | undefined;
+  if (host === "vimeo.com") {
+    id = parts[0] ?? "";
+    hash = parts[1];
+  } else if (host === "player.vimeo.com" && parts[0] === "video") {
+    id = parts[1] ?? "";
+    hash = parsed.searchParams.get("h") ?? undefined;
+  } else {
+    throw new CatalogError(`Expected a Vimeo link: ${url}`);
+  }
+
+  if (!VIMEO_ID.test(id)) {
+    throw new CatalogError(`Could not find the Vimeo video number in ${url}`);
+  }
+  if (hash !== undefined && !VIMEO_HASH.test(hash)) {
+    throw new CatalogError(`The part after the video number in ${url} looks wrong.`);
+  }
+
+  const raw = new URLSearchParams(parsed.hash.slice(1)).get("t");
+  const startSeconds = raw === null ? null : readStartTime(raw, url);
+  return { id, ...(hash ? { hash } : {}), startSeconds };
+}
+
+// A film link, from YouTube or Vimeo.
+function readFilmVideo(url: string): Pick<Film, "host" | "videoId" | "vimeoHash" | "startSeconds"> {
+  const host = (() => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      throw new CatalogError(`This is not a usable link: ${url}`);
+    }
+  })();
+  if (/(^|\.)vimeo\.com$/.test(host)) {
+    const video = readVimeo(url);
+    return {
+      host: "vimeo",
+      videoId: video.id,
+      ...(video.hash ? { vimeoHash: video.hash } : {}),
+      startSeconds: video.startSeconds,
+    };
+  }
+  if (/(^|\.)(youtube\.com|youtu\.be)$/.test(host)) {
+    const video = readYouTube(url);
+    return { host: "youtube", videoId: video.id, startSeconds: video.startSeconds };
+  }
+  throw new CatalogError(`A film needs a YouTube or Vimeo link: ${url}`);
 }
 
 export function assertInstagramPost(url: string): void {
@@ -362,6 +453,15 @@ function posterFile(value: string, lineNo: number): string {
   const filePath = localFile(value, lineNo, "poster");
   if (!/^public\/films\/[a-z0-9-]+\.jpg$/.test(filePath)) {
     fail(lineNo, "poster needs a path like public/films/flow.jpg.");
+  }
+  return filePath;
+}
+
+// The still for a film, shown before it plays.
+function filmPosterFile(value: string, lineNo: number): string {
+  const filePath = localFile(value, lineNo, "poster");
+  if (!FILM_POSTER.test(filePath)) {
+    fail(lineNo, "poster needs a path like public/images/films/aryk.jpg.");
   }
   return filePath;
 }
@@ -741,10 +841,18 @@ export function parseCatalog(source: string): Catalog {
     if (bullet.indent > 0) {
       if (!last) fail(lineNo, "this note needs a work bullet directly above it.");
       if (last.kind === "film") {
-        const value = noteValue(bullet, ["year", "summary", "credits"], lineNo);
+        const value = noteValue(
+          bullet,
+          ["year", "summary", "credits", "poster"],
+          lineNo,
+        );
         if (bullet.label === "year") last.item.year = value;
         else if (bullet.label === "summary") last.item.summary = value;
-        else last.item.credits = value;
+        else if (bullet.label === "credits") last.item.credits = value;
+        else {
+          if (last.item.poster) fail(lineNo, "poster is already set.");
+          last.item.poster = filmPosterFile(value, lineNo);
+        }
       } else if (last.kind === "dictionary") {
         const value = noteValue(
           bullet,
@@ -822,14 +930,15 @@ export function parseCatalog(source: string): Catalog {
     }
 
     if (section === "films" && filmGroup === "films") {
-      if (!bullet.isUrl) fail(lineNo, "a film needs a YouTube link.");
-      const video = youtubeAt(bullet.value, lineNo);
-      const film: Film = {
-        title: bullet.label,
-        url: bullet.value,
-        youtubeId: video.id,
-        startSeconds: video.startSeconds,
-      };
+      if (!bullet.isUrl) fail(lineNo, "a film needs a YouTube or Vimeo link.");
+      let video: ReturnType<typeof readFilmVideo>;
+      try {
+        video = readFilmVideo(bullet.value);
+      } catch (error) {
+        if (error instanceof CatalogError) fail(lineNo, error.message);
+        throw error;
+      }
+      const film: Film = { title: bullet.label, url: bullet.value, ...video };
       films.push(film);
       last = { kind: "film", item: film };
       continue;
@@ -946,8 +1055,12 @@ export function parseCatalog(source: string): Catalog {
   if (!/^aryk\b/i.test(films[0]?.title ?? "")) {
     throw new CatalogError("The first film must be Aryk.");
   }
-  if (films[0]?.startSeconds === null || films[0]?.startSeconds === undefined) {
-    throw new CatalogError("Aryk's YouTube link needs a start time, such as t=1744s.");
+  for (const film of films) {
+    if (film.host === "vimeo" && !film.poster) {
+      throw new CatalogError(
+        `"${film.title}" is on Vimeo, so it needs a still. Under that film, add a line: poster: public/images/films/name.jpg`,
+      );
+    }
   }
   for (const piece of dictionary) {
     if (!piece.poster) {
@@ -1141,6 +1254,13 @@ export function loadCatalog(root = process.cwd()): Catalog {
     if (collaboration.cover && !fs.existsSync(path.join(root, collaboration.cover))) {
       throw new CatalogError(
         `references/links.md — cover file not found: ${collaboration.cover}`,
+      );
+    }
+  }
+  for (const film of catalog.films) {
+    if (film.poster && !fs.existsSync(path.join(root, film.poster))) {
+      throw new CatalogError(
+        `references/links.md — poster file not found: ${film.poster}`,
       );
     }
   }
