@@ -1173,10 +1173,10 @@ function workAddresses(works: {
 }
 
 // Turns the bio into paragraphs of words and links. In the bio:
-//   [Aryk!]                          links to Aryk! on the Films page
-//   [not/local](not/local with Kir)  shows "not/local", links to that work
-//   [music videos](LUNA EP videos)   links to a release's video stills
-//   [Straight8](https://...)         links to another site
+//   [Aryk!]                         links to Aryk! on the Films page
+//   [his duo](not/local)            shows "his duo", links to that work
+//   [music videos](LUNA EP videos)  links to a release's video stills
+//   [Straight8](https://...)        links to another site
 // A name that matches no work stops the build, so a typo never ships.
 function linkAbout(
   about: string,

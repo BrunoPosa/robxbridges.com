@@ -39,7 +39,7 @@ Write the bio as normal paragraphs under About. A blank line starts a new paragr
 - Photo: public/images/about.jpg
 ```
 
-To link a work from the bio, put its exact title in square brackets: `[Aryk!]` links to Aryk! on the Films page. To show different words, add the title in round brackets after them: `[not/local](not/local with Kir)`. Any film, release, track, or collaboration works, and so do `Music`, `Films`, and `Collaborations`. A release name followed by `videos`, such as `[music videos](LUNA EP videos)`, goes straight to that release's video stills. So does a track that has a video. A link to another site is `[Straight8](https://...)`. Link a work once, the first time it comes up. If a name in brackets matches nothing, the tests stop and say which one.
+To link a work from the bio, put its exact title in square brackets: `[Aryk!]` links to Aryk! on the Films page. To show different words, add the title in round brackets after them: `[his duo](not/local)`. Any film, release, track, or collaboration works, and so do `Music`, `Films`, and `Collaborations`. A release name followed by `videos`, such as `[music videos](LUNA EP videos)`, goes straight to that release's video stills. So does a track that has a video. A link to another site is `[Straight8](https://...)`. Link a work once, the first time it comes up. If a name in brackets matches nothing, the tests stop and say which one.
 
 The films page shows the films in this order, each with a Play button. Nothing plays until the visitor presses Play. A film with a start time starts there. The year, summary, and credits show under each film. The Chinese Dictionary pieces come after them, as small squares. Under that heading, `Year` and `Summary` lines describe the whole group, and go above the pieces. An `Instagram` line there (the post for Night, the piece in the permanent installation) shows a link under the description. Each piece needs the Instagram post link, an indented `poster` line (a still in `public/films/`), and an indented `video` line (the clip in `public/films/`, made with `scripts/encode-video.sh`, see the README). Pressing a piece plays the clip over the page. The Instagram link shows under it.
 
@@ -287,15 +287,14 @@ Icons use the Social list. A blank YouTube or Instagram line hides that icon unt
 
 ## Collaborations
 
-- DJ WUF: https://djwuf.bandcamp.com/track/2-disrupt
+- DJ WUF & Rob Bridges: https://djwuf.bandcamp.com/track/2-disrupt
   - project: 2 Disrupt
-  - role: Written, produced and mixed together
   - year: 2026
   - cover: public/images/collabs/2-disrupt.jpg
   - player: 2336086847
-- not/local with Kir: https://notxlocal.bandcamp.com/track/bigtime
+  - instagram: https://www.instagram.com/dj__wuf/
+- not/local: https://notxlocal.bandcamp.com/track/bigtime
   - project: BIGTIME
-  - role: Pop/EDM duo
   - year: 2025
   - cover: public/images/collabs/bigtime.jpg
   - player: 124533583
@@ -307,4 +306,4 @@ Rob Bridges is a Finnish-American composer, sound designer, producer and DJ base
 
 His film work includes the original jazz score for [Aryk!], which placed in the Top 8 at Straight8 2026 and screened at Cannes Film Festival, BFI IMAX and Cambridge Film Festival. He also scored [Apostate], made the audio for a permanent installation at Hong Kong International Airport’s Kyra Lounge ([The Chinese Dictionary](Chinese Dictionary)), and has directed and edited [music videos](LUNA EP videos) for his own projects and other artists.
 
-Beyond composing and commissioned work, he performs as a DJ and as half of the pop/EDM duo [not/local](not/local with Kir).
+Beyond composing and commissioned work, he performs as a DJ and as half of the pop/EDM duo [not/local].

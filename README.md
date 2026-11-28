@@ -71,7 +71,7 @@ Collaborations are the bullets under Collaborations in `references/links.md`, ne
 
 The bio is the paragraphs under About. A blank line starts a new paragraph. Those words, and the contact form, sit at the bottom of every page. A photo is one bullet, `Photo: public/images/about.jpg`, and that file has to exist. Until the paragraphs are written, the About heading is there on its own.
 
-To link a work from the bio, put its exact title in square brackets: `[Aryk!]` jumps to Aryk! on the Films page, and `[LUNA EP]` opens that release on the Music page. To show other words, add the title after them in round brackets: `[not/local](not/local with Kir)`. Films, releases, tracks, collaborations, and the pages `Music`, `Films`, and `Collaborations` all work. `[music videos](LUNA EP videos)` goes straight to that release's video stills, and so does a track that has a video. A link to another site is `[words](https://...)` and opens in a new tab. A name that matches nothing fails `npm test` and names the link, so a typo never goes live.
+To link a work from the bio, put its exact title in square brackets: `[Aryk!]` jumps to Aryk! on the Films page, and `[LUNA EP]` opens that release on the Music page. To show other words, add the title after them in round brackets: `[his duo](not/local)`. Films, releases, tracks, collaborations, and the pages `Music`, `Films`, and `Collaborations` all work. `[music videos](LUNA EP videos)` goes straight to that release's video stills, and so does a track that has a video. A link to another site is `[words](https://...)` and opens in a new tab. A name that matches nothing fails `npm test` and names the link, so a typo never goes live.
 
 ## Publish
 

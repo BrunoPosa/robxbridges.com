@@ -1,7 +1,8 @@
 ---
 // Collaborations come from references/links.md, in the order written there.
 // The newest goes first. A row is a name plus an https link. Optional notes
-// sit under that name:
+// sit under that name. The name shows under the project title exactly as
+// written, such as "DJ WUF & Rob Bridges".
 //
 // - Ada Example: https://ada.bandcamp.com/track/song
 //   - project: Song Title
@@ -30,11 +31,6 @@ const players = await Promise.all(
     collaboration.player ? playerView(collaboration.player) : undefined,
   ),
 );
-
-// "with DJ WUF". A name that already says "with" is shown as written.
-function withLine(name: string): string {
-  return /\bwith\b/i.test(name) ? name : `with ${name}`;
-}
 
 // The words on the main link: names Bandcamp only when it goes there.
 function linkLabel(url: string, hasPlayer: boolean): string {
@@ -98,7 +94,7 @@ function linkLabel(url: string, hasPlayer: boolean): string {
                   )}
                 </h2>
                 {collaboration.project && (
-                  <p class="collab-with">{withLine(collaboration.name)}</p>
+                  <p class="collab-with">{collaboration.name}</p>
                 )}
                 {collaboration.role && <p class="collab-role">{collaboration.role}</p>}
                 {player && (
